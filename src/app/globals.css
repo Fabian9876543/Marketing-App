@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f5f2;
+  --surface: #ffffff;
+  --surface-2: #f1efea;
+  --line: #e4e1da;
+  --text: #1d1c19;
+  --muted: #6c6860;
+  --accent: #3150c8;
+  --accent-text: #ffffff;
+  --ok: #1f7a4d;
+  --ok-bg: #e3f3ea;
+  --warn: #8a5a00;
+  --warn-bg: #fbf0d9;
+  --bad: #b3261e;
+  --bad-bg: #fbe5e3;
+  --info: #2b5aa8;
+  --info-bg: #e3ecfa;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131312;
+    --surface: #1c1b19;
+    --surface-2: #24231f;
+    --line: #2f2d29;
+    --text: #f1efea;
+    --muted: #a39f96;
+    --accent: #8299f2;
+    --accent-text: #0e1430;
+    --ok: #7fd3a5;
+    --ok-bg: #18301f;
+    --warn: #f0c46b;
+    --warn-bg: #33280f;
+    --bad: #f3a19a;
+    --bad-bg: #3a1a17;
+    --info: #9cbcf3;
+    --info-bg: #182640;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-text);
+  --color-ok: var(--ok);
+  --color-ok-bg: var(--ok-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-fg transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-transparent bg-accent text-accent-fg hover:bg-accent hover:opacity-90;
+  }
+  .btn-danger {
+    @apply text-bad hover:bg-bad-bg;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-fg outline-none focus:border-accent;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium text-muted;
+  }
+  .h1 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+  .h2 {
+    @apply text-base font-semibold;
+  }
+}

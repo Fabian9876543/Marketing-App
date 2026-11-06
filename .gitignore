@@ -1,0 +1,15 @@
+node_modules/
+.next/
+out/
+coverage/
+next-env.d.ts
+*.tsbuildinfo
+
+# Lokale Daten und Geheimnisse – niemals committen
+.env
+.env.local
+*.db
+*.db-wal
+*.db-shm
+data/
+test-results/

@@ -1,6 +1,6 @@
 # Plan: Fokuspilot Studio (Arbeitstitel)
 
-Stand: 06.11.2026 · Status: Entwurf, Website-Repo von Fokuspilot steht noch aus
+Stand: 06.11.2026 · **Phase 1 umgesetzt** (Grundgerüst + YouTube) · Website-Repo von Fokuspilot steht noch aus
 
 ## Ziel
 
@@ -80,7 +80,7 @@ Manche Freigaben dauern Wochen, deshalb früh beantragen.
 - [ ] Website-Repo oder Website-Dateien an mich schicken
 - [ ] (ich) Technischer Test: OAuth-Weiterleitung und Upload eines Testvideos für jede Plattform prüfen
 
-### Phase 1: Grundgerüst und erster Kanal (YouTube)
+### Phase 1: Grundgerüst und erster Kanal (YouTube) ✅ umgesetzt
 
 - Next.js-App mit SQLite-Datenbank und Einstellungen
 - Konten verbinden per OAuth, Tokens in der Keychain
@@ -90,6 +90,7 @@ Manche Freigaben dauern Wochen, deshalb früh beantragen.
 - YouTube-Publisher: Resumable Upload und geplante Veröffentlichung über `publishAt`. Nach dem Audit veröffentlicht YouTube dann selbst, auch wenn der Mac aus ist.
 
 **Meilenstein:** Ein Testvideo erscheint zur geplanten Zeit auf YouTube.
+Getestet mit Unit-Tests, einem nachgebauten YouTube-Server und im Browser. Der echte Test mit deinem Kanal folgt, sobald das Google-Projekt eingerichtet ist (docs/SETUP.md).
 
 ### Phase 2: Studio, in dem Claude Code die Shorts baut
 

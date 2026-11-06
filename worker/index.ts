@@ -1,0 +1,74 @@
+/**
+ * Fokuspilot Studio – Worker
+ * Läuft im Hintergrund (auf dem Mac als LaunchAgent) und veröffentlicht fällige Posts.
+ */
+import { getDb } from "@/lib/db/client";
+import { loadDotEnv } from "@/lib/env";
+import { importBacklog } from "@/lib/backlog";
+import { logEvent, pruneEvents } from "@/lib/events";
+import { publishers } from "@/lib/publishing/registry";
+import { getAccessToken } from "@/lib/publishing/tokens";
+import { getSettings, writeHeartbeat } from "@/lib/settings";
+import { KeepAwake } from "@/lib/worker/awake";
+import { createEngine } from "@/lib/worker/engine";
+
+loadDotEnv();
+
+const TICK_MS = 15_000;
+const BACKLOG_SCAN_MS = 5 * 60_000;
+const AWAKE_BEFORE_MS = 10 * 60_000;
+
+const db = getDb();
+const awake = new KeepAwake();
+const engine = createEngine({
+  db,
+  publishers,
+  getAccessToken: (account) => getAccessToken(db, account),
+  onBusy: () => awake.set(true),
+});
+const startedAt = Date.now();
+let running = false;
+let stopping = false;
+let lastScan = 0;
+
+async function tick() {
+  if (running || stopping) return;
+  running = true;
+  try {
+    writeHeartbeat(db, { at: Date.now(), pid: process.pid, startedAt });
+
+    if (Date.now() - lastScan > BACKLOG_SCAN_MS) {
+      lastScan = Date.now();
+      const settings = getSettings(db);
+      const r = await importBacklog(db, settings.contentDir);
+      if (r.added) logEvent(db, "info", "backlog", `${r.added} neue Shorts im Backlog gefunden`);
+      for (const e of r.errors) logEvent(db, "warn", "backlog", e);
+      pruneEvents(db);
+    }
+
+    const report = await engine.tick();
+    const soon = report.nextDueAt && report.nextDueAt.getTime() - Date.now() < AWAKE_BEFORE_MS;
+    awake.set(Boolean(soon));
+  } catch (err) {
+    logEvent(db, "error", "worker", `Unerwarteter Fehler: ${(err as Error).stack ?? err}`);
+    awake.set(false);
+  } finally {
+    running = false;
+  }
+}
+
+function shutdown(signal: string) {
+  stopping = true;
+  awake.set(false);
+  logEvent(db, "info", "worker", `Beendet (${signal})`);
+  // Laufende Uploads sind fortsetzbar und werden beim nächsten Start wieder aufgenommen.
+  setTimeout(() => process.exit(0), running ? 2000 : 0);
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+
+logEvent(db, "info", "worker", `Gestartet (PID ${process.pid})`);
+engine.recoverStale();
+void tick();
+setInterval(() => void tick(), TICK_MS);

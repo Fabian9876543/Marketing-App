@@ -1,0 +1,54 @@
+{
+  "name": "fokuspilot-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lokales Marketing-Tool für Fokuspilot: Shorts planen, freigeben und veröffentlichen.",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n web,worker -c blue,magenta \"next dev -H 127.0.0.1 -p 4321\" \"tsx watch worker/index.ts\"",
+    "build": "next build",
+    "start": "concurrently -k -n web,worker -c blue,magenta \"next start -H 127.0.0.1 -p 4321\" \"tsx worker/index.ts\"",
+    "worker": "tsx worker/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "local:setup": "tsx scripts/setup.ts",
+    "local:install": "next build && tsx scripts/launchagent.ts install",
+    "local:uninstall": "tsx scripts/launchagent.ts uninstall",
+    "local:status": "tsx scripts/launchagent.ts status"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "2.1.2",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.4",
+    "luxon": "3.7.2",
+    "next": "16.4.2",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/luxon": "3.7.6",
+    "@types/node": "22.20.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "concurrently": "10.0.6",
+    "drizzle-kit": "0.31.11",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  }
+}
