@@ -71,7 +71,7 @@ export const youtubePublisher: Publisher = {
     const mimeType = MIME[path.extname(file).toLowerCase()] ?? "video/mp4";
     const token = await input.accessToken();
 
-    let session = input.target.uploadSession;
+    let session = input.target.uploadSession?.url ? input.target.uploadSession : null;
     if (session && (session.total !== size || input.now.getTime() - session.createdAt > SESSION_MAX_AGE_MS)) {
       session = null;
     }
@@ -80,7 +80,7 @@ export const youtubePublisher: Publisher = {
     let video: YtVideo | null = null;
     if (session) {
       try {
-        const status = await queryUpload(session.url, size, token);
+        const status = await queryUpload(session.url!, size, token);
         if (status.done) video = status.video;
         else {
           offset = status.offset;
@@ -100,7 +100,7 @@ export const youtubePublisher: Publisher = {
         offset = 0;
       }
       try {
-        video = await uploadFrom({ sessionUrl: session.url, filePath: file, size, offset, getToken: input.accessToken });
+        video = await uploadFrom({ sessionUrl: session.url!, filePath: file, size, offset, getToken: input.accessToken });
       } catch (err) {
         if (err instanceof SessionExpiredError) {
           input.saveSession(null);

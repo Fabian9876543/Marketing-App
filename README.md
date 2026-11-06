@@ -2,7 +2,7 @@
 
 Lokales Marketing-Tool für **Fokuspilot (KI-Telefonassistent)**. Es plant Shorts, holt deine Freigabe ein und veröffentlicht sie pünktlich. Alles läuft auf deinem Mac, ohne Cloud. Zugangsdaten liegen verschlüsselt in der macOS-Keychain.
 
-**Stand: Phase 1** – Grundgerüst plus YouTube. Gesamtplan: [docs/PLAN.md](docs/PLAN.md) · Einrichtung: [docs/SETUP.md](docs/SETUP.md)
+**Stand: Phase 3** – YouTube, Instagram, TikTok und LinkedIn. Gesamtplan: [docs/PLAN.md](docs/PLAN.md) · Einrichtung: [docs/SETUP.md](docs/SETUP.md)
 
 ## Was schon geht
 - **Backlog:** ein Ordner pro Short (`video.mp4` + optional `meta.json`) oder Upload im Browser. Dauer und Format werden geprüft.
@@ -14,6 +14,10 @@ Lokales Marketing-Tool für **Fokuspilot (KI-Telefonassistent)**. Es plant Short
   - holt verpasste Posts innerhalb einer Toleranz nach
   - setzt hängende Uploads nach einem Absturz fort
   - hält den Mac während Uploads wach
+- **Instagram Reels:** Anmeldung über Facebook Login for Business. Upload direkt vom Mac ohne Tunnel. Wartet auf Instagrams Verarbeitung und prüft das Tageskontingent.
+- **TikTok:** standardmäßig als Entwurf in deiner TikTok-App (ohne Audit möglich). Nach dem Audit auch direkt öffentlich, mit KI-Kennzeichnung.
+- **LinkedIn:** Video-Posts aufs persönliche Profil. Text wird für LinkedIn korrekt geschützt, Hashtags bleiben klickbar. Erinnerung zum Neuverbinden alle 60 Tage.
+- **Texte je Plattform** aus `meta.json`, Längen-Limits werden eingehalten. Bei KI-Inhalten hängt ein KI-Hinweis an, wo es keine API-Kennzeichnung gibt.
 - **Test-Kanal**, um alles ohne echte Konten auszuprobieren.
 
 ## Schnellstart
@@ -21,7 +25,7 @@ Lokales Marketing-Tool für **Fokuspilot (KI-Telefonassistent)**. Es plant Short
 ```bash
 pnpm install
 pnpm local:setup
-pnpm dev            # Oberfläche + Worker → http://127.0.0.1:4321
+pnpm dev            # Oberfläche + Worker → http://localhost:4321
 ```
 
 ## Befehle
@@ -39,7 +43,7 @@ pnpm dev            # Oberfläche + Worker → http://127.0.0.1:4321
 ```
 src/app/            Oberfläche (Next.js) und API-Routen (Medien, Upload, OAuth)
 src/lib/            Logik: Backlog, Slots, Posts, Einstellungen, Verschlüsselung
-src/lib/publishing/ Plattform-Anbindungen (YouTube, Test-Kanal)
+src/lib/publishing/ Plattform-Anbindungen (YouTube, Instagram, TikTok, LinkedIn, Test-Kanal)
 src/lib/worker/     Veröffentlichungs-Engine
 worker/index.ts     Worker-Prozess
 scripts/            Einrichtung und launchd-Dienste

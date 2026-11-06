@@ -19,6 +19,20 @@ export const appSettingsSchema = z.object({
       addShortsTag: z.boolean().default(true),
     })
     .default({ privacy: "public", uploadAheadDays: 14, dailyUploadLimit: 100, categoryId: "28", addShortsTag: true }),
+  tiktok: z
+    .object({
+      /**
+       * draft          = Entwurf in deiner TikTok-App (du postest dort selbst) – geht ohne Audit
+       * direct_private = direkt, aber nur für dich sichtbar (zum Testen)
+       * direct_public  = direkt öffentlich (erst nach TikTok-Audit möglich)
+       */
+      mode: z.enum(["draft", "direct_private", "direct_public"]).default("draft"),
+    })
+    .default({ mode: "draft" }),
+  instagram: z.object({ shareToFeed: z.boolean().default(true) }).default({ shareToFeed: true }),
+  linkedin: z.object({ visibility: z.enum(["PUBLIC", "CONNECTIONS"]).default("PUBLIC") }).default({ visibility: "PUBLIC" }),
+  /** Wird an die Caption gehängt, wenn ein Video KI-Inhalte enthält und die Plattform keine eigene Kennzeichnung per API hat. */
+  aiDisclosure: z.string().max(200).default("Mit KI erstellt."),
 });
 
 export type AppSettings = z.infer<typeof appSettingsSchema>;
@@ -31,13 +45,16 @@ export function getSettings(db: DB): AppSettings {
   return parsed.success ? parsed.data : appSettingsSchema.parse({});
 }
 
-export function updateSettings(db: DB, patch: Partial<AppSettings>): AppSettings {
+type SettingsPatch = { [K in keyof AppSettings]?: AppSettings[K] extends object ? Partial<AppSettings[K]> : AppSettings[K] };
+
+export function updateSettings(db: DB, patch: SettingsPatch): AppSettings {
   const current = getSettings(db);
-  const next = appSettingsSchema.parse({
-    ...current,
-    ...patch,
-    youtube: { ...current.youtube, ...(patch.youtube ?? {}) },
-  });
+  const merged: Record<string, unknown> = { ...current };
+  for (const [key, value] of Object.entries(patch)) {
+    const before = (current as Record<string, unknown>)[key];
+    merged[key] = value && typeof value === "object" && before && typeof before === "object" ? { ...before, ...value } : value;
+  }
+  const next = appSettingsSchema.parse(merged);
   db.insert(settings)
     .values({ key: KEY, value: next })
     .onConflictDoUpdate({ target: settings.key, set: { value: next } })

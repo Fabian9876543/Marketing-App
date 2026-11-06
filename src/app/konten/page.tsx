@@ -4,21 +4,44 @@ import { SubmitButton } from "@/components/client";
 import { Badge, Flash, PageHeader, PlatformChip, flashFrom } from "@/components/ui";
 import { PLATFORM_LABEL, listAccounts } from "@/lib/accounts";
 import { getDb } from "@/lib/db/client";
-import { youtubeConfigured } from "@/lib/env";
-import { youtubeRedirectUri } from "@/lib/publishing/youtube/oauth";
+import type { Account, Platform } from "@/lib/db/schema";
+import { missingEnv } from "@/lib/publishing/oauth";
+import { oauthProviders } from "@/lib/publishing/registry";
+import { getSettings } from "@/lib/settings";
+import { formatDate, relative } from "@/lib/time";
 
-const UPCOMING = [
-  { platform: "instagram" as const, note: "Phase 3 – Instagram Reels über die Meta-API" },
-  { platform: "tiktok" as const, note: "Phase 3 – zuerst als Entwurf in deiner TikTok-App" },
-  { platform: "linkedin" as const, note: "Phase 3 – persönliches Profil, später Unternehmensseite" },
-];
+type Connectable = Exclude<Platform, "simulator">;
+
+const INFO: Record<Connectable, { title: string; text: string; note: string }> = {
+  youtube: {
+    title: "YouTube Shorts",
+    text: "Melde dich mit dem Google-Konto an, dem der Fokuspilot-Kanal gehört.",
+    note: "Solange dein Google-Projekt nicht von YouTube geprüft ist (Audit), bleiben per API hochgeladene Videos privat.",
+  },
+  instagram: {
+    title: "Instagram Reels",
+    text: "Melde dich mit dem Facebook-Konto an, das die mit Instagram verknüpfte Facebook-Seite verwaltet. Alle verknüpften Instagram-Konten werden übernommen.",
+    note: "Nötig: Instagram-Business- oder Creator-Konto, verknüpft mit einer Facebook-Seite. Die Meta-App bleibt im Entwicklungsmodus.",
+  },
+  tiktok: {
+    title: "TikTok",
+    text: "Melde dich mit dem TikTok-Konto von Fokuspilot an.",
+    note: "Ohne TikTok-Audit landen Videos als Entwurf in deiner TikTok-App – dort Text einfügen und posten.",
+  },
+  linkedin: {
+    title: "LinkedIn",
+    text: "Melde dich mit deinem LinkedIn-Profil an. Posts erscheinen auf deinem persönlichen Profil.",
+    note: "LinkedIn verlangt alle 60 Tage eine neue Anmeldung. Für die Unternehmensseite muss LinkedIn erst die Community Management API freigeben.",
+  },
+};
 
 export default async function AccountsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await connection();
   const db = getDb();
   const accounts = listAccounts(db);
-  const ytReady = youtubeConfigured();
+  const settings = getSettings(db);
   const hasTest = accounts.some((a) => a.platform === "simulator");
+  const connectable = Object.keys(INFO) as Connectable[];
 
   return (
     <>
@@ -32,30 +55,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         ) : (
           <ul className="card divide-y divide-line">
             {accounts.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                <PlatformChip platform={a.platform} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium">{a.name}</div>
-                  <div className="text-xs text-muted">
-                    {PLATFORM_LABEL[a.platform]}
-                    {a.handle ? ` · ${a.handle}` : ""}
-                  </div>
-                  {a.status === "needs_reconnect" && <p className="mt-1 text-xs text-bad">{a.statusMessage}</p>}
-                </div>
-                {a.status === "active" ? <Badge tone="ok">Aktiv</Badge> : <Badge tone="bad">Neu verbinden</Badge>}
-                {a.platform === "youtube" && a.status === "needs_reconnect" && (
-                  <a href="/api/oauth/youtube/start" className="btn btn-primary">
-                    Neu verbinden
-                  </a>
-                )}
-                <form action={disconnectAccountAction}>
-                  <input type="hidden" name="accountId" value={a.id} />
-                  <input type="hidden" name="back" value="/konten" />
-                  <SubmitButton className="btn btn-danger" confirm={`${a.name} trennen? Geplante Posts auf diesem Konto werden abgebrochen.`}>
-                    Trennen
-                  </SubmitButton>
-                </form>
-              </li>
+              <AccountRow key={a.id} account={a} />
             ))}
           </ul>
         )}
@@ -64,43 +64,56 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
       <section>
         <h2 className="h2 mb-3">Hinzufügen</h2>
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="card space-y-3 p-4">
-            <div className="flex items-center gap-2">
-              <PlatformChip platform="youtube" />
-              <h3 className="font-medium">YouTube Shorts</h3>
-            </div>
-            {ytReady ? (
-              <>
-                <p className="text-sm text-muted">Melde dich mit dem Google-Konto an, dem der Fokuspilot-Kanal gehört.</p>
-                <a href="/api/oauth/youtube/start" className="btn btn-primary">
-                  YouTube verbinden
-                </a>
-              </>
-            ) : (
-              <div className="space-y-2 text-sm text-muted">
-                <p>
-                  Noch nicht eingerichtet. Trage <code>GOOGLE_CLIENT_ID</code> und <code>GOOGLE_CLIENT_SECRET</code> aus deinem Google-Cloud-Projekt in die{" "}
-                  <code>.env</code> ein und starte die App neu.
+          {connectable.map((platform) => {
+            const provider = oauthProviders[platform]!;
+            const missing = missingEnv(provider);
+            const info = INFO[platform];
+            return (
+              <div key={platform} className="card flex flex-col gap-3 p-4">
+                <div className="flex items-center gap-2">
+                  <PlatformChip platform={platform} />
+                  <h3 className="font-medium">{info.title}</h3>
+                  {missing.length ? <Badge tone="warn">Einrichtung fehlt</Badge> : <Badge tone="ok">Bereit</Badge>}
+                </div>
+                {missing.length === 0 ? (
+                  <>
+                    <p className="text-sm text-muted">{info.text}</p>
+                    <a href={`/api/oauth/${platform}/start`} className="btn btn-primary self-start">
+                      {PLATFORM_LABEL[platform]} verbinden
+                    </a>
+                  </>
+                ) : (
+                  <div className="space-y-2 text-sm text-muted">
+                    <p>
+                      Trage in die <code>.env</code> ein: {missing.map((m) => <code key={m} className="mr-1 rounded bg-surface-2 px-1">{m}</code>)} und starte die App neu.
+                    </p>
+                    <p className="[overflow-wrap:anywhere]">
+                      Weiterleitungs-URI für die App: <code className="rounded bg-surface-2 px-1">{provider.redirectUri()}</code>
+                    </p>
+                    <p>Schritt für Schritt: docs/SETUP.md</p>
+                  </div>
+                )}
+                <p className="mt-auto text-xs text-muted">
+                  {info.note}
+                  {platform === "tiktok" && (
+                    <>
+                      {" "}
+                      Aktueller Modus:{" "}
+                      {{ draft: "Entwurf in der App", direct_private: "direkt, nur für dich", direct_public: "direkt öffentlich" }[settings.tiktok.mode]} (änderbar unter
+                      „Einstellungen“).
+                    </>
+                  )}
                 </p>
-                <p>
-                  Weiterleitungs-URI im OAuth-Client: <code className="break-all rounded bg-surface-2 px-1">{youtubeRedirectUri()}</code>
-                </p>
-                <p>Schritt für Schritt: docs/SETUP.md</p>
               </div>
-            )}
-            <p className="text-xs text-muted">
-              Wichtig: Solange dein Google-Projekt nicht von YouTube geprüft (Audit) ist, bleiben per API hochgeladene Videos privat.
-            </p>
-          </div>
+            );
+          })}
 
-          <div className="card space-y-3 p-4">
+          <div className="card flex flex-col gap-3 p-4">
             <div className="flex items-center gap-2">
               <PlatformChip platform="simulator" />
               <h3 className="font-medium">Test-Kanal</h3>
             </div>
-            <p className="text-sm text-muted">
-              Zum Ausprobieren ohne echtes Konto: Posts werden als Kopie in den Datenordner „veröffentlicht“.
-            </p>
+            <p className="text-sm text-muted">Zum Ausprobieren ohne echtes Konto: Posts werden als Kopie in den Datenordner „veröffentlicht“.</p>
             {hasTest ? (
               <Badge tone="ok">Bereits angelegt</Badge>
             ) : (
@@ -110,19 +123,44 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
               </form>
             )}
           </div>
-
-          {UPCOMING.map((u) => (
-            <div key={u.platform} className="card space-y-2 p-4 opacity-70">
-              <div className="flex items-center gap-2">
-                <PlatformChip platform={u.platform} />
-                <h3 className="font-medium">{PLATFORM_LABEL[u.platform]}</h3>
-                <Badge>Folgt</Badge>
-              </div>
-              <p className="text-sm text-muted">{u.note}</p>
-            </div>
-          ))}
         </div>
       </section>
     </>
+  );
+}
+
+function AccountRow({ account: a }: { account: Account }) {
+  const soon = a.reconnectBy && a.reconnectBy.getTime() - Date.now() < 7 * 86_400_000;
+  return (
+    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
+      <PlatformChip platform={a.platform} />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium">{a.name}</div>
+        <div className="text-xs text-muted">
+          {PLATFORM_LABEL[a.platform]}
+          {a.handle ? ` · ${a.handle}` : ""}
+          {a.reconnectBy && (
+            <span className={soon ? "text-warn" : ""}>
+              {" "}
+              · neu verbinden bis {formatDate(a.reconnectBy, "Europe/Berlin")} ({relative(a.reconnectBy)})
+            </span>
+          )}
+        </div>
+        {a.status === "needs_reconnect" && <p className="mt-1 text-xs text-bad">{a.statusMessage}</p>}
+      </div>
+      {a.status === "active" ? <Badge tone={soon ? "warn" : "ok"}>{soon ? "Läuft bald ab" : "Aktiv"}</Badge> : <Badge tone="bad">Neu verbinden</Badge>}
+      {a.platform !== "simulator" && (a.status === "needs_reconnect" || soon) && (
+        <a href={`/api/oauth/${a.platform}/start`} className="btn btn-primary">
+          Neu verbinden
+        </a>
+      )}
+      <form action={disconnectAccountAction}>
+        <input type="hidden" name="accountId" value={a.id} />
+        <input type="hidden" name="back" value="/konten" />
+        <SubmitButton className="btn btn-danger" confirm={`${a.name} trennen? Geplante Posts auf diesem Konto werden abgebrochen.`}>
+          Trennen
+        </SubmitButton>
+      </form>
+    </li>
   );
 }

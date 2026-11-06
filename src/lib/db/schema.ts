@@ -26,6 +26,8 @@ export const accounts = sqliteTable(
       .notNull()
       .default("active"),
     statusMessage: text("status_message"),
+    /** Bis wann das Konto neu verbunden werden muss (z. B. LinkedIn nach 60 Tagen). null = unbegrenzt. */
+    reconnectBy: integer("reconnect_by", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -82,6 +84,8 @@ export const TARGET_STATES = [
   "uploading",
   "scheduled",
   "published",
+  /** Als Entwurf an die App übergeben (TikTok) – du veröffentlichst dort selbst. */
+  "handed_off",
   "failed",
   "missed",
   "cancelled",
@@ -117,7 +121,12 @@ export const postTargets = sqliteTable(
   (t) => [uniqueIndex("post_targets_post_account").on(t.postId, t.accountId), index("post_targets_state").on(t.state)],
 );
 
-export type UploadSession = { url: string; total: number; createdAt: number };
+/**
+ * Zwischenstand eines Uploads, damit ein neuer Versuch dort weitermacht, wo der letzte aufgehört hat.
+ * url/total: fortsetzbarer Upload (YouTube). remoteId: Datei ist schon bei der Plattform
+ * (Instagram-Container, TikTok publish_id, LinkedIn-Video), es fehlt nur Verarbeitung/Veröffentlichung.
+ */
+export type UploadSession = { createdAt: number; url?: string; total?: number; remoteId?: string };
 
 /** Wiederkehrende Posting-Zeiten (Ortszeit laut Einstellungen). */
 export const slots = sqliteTable("slots", {

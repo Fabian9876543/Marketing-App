@@ -108,6 +108,7 @@ function QueueItem({ view, tz, back }: { view: PostView; tz: string; back: strin
                 </a>
               )}
               {t.lastError && <span className="w-full text-xs text-bad [overflow-wrap:anywhere]">{t.lastError}</span>}
+              {t.state === "handed_off" && <span className="w-full text-xs text-muted">Als Entwurf in der TikTok-App – dort Text einfügen und posten.</span>}
               {(t.state === "failed" || t.state === "missed") && (
                 <form action={retryTargetAction}>
                   <input type="hidden" name="targetId" value={t.id} />

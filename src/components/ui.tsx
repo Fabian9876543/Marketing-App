@@ -39,6 +39,7 @@ const TARGET_TONE: Record<PostTarget["state"], Tone> = {
   uploading: "info",
   scheduled: "info",
   published: "ok",
+  handed_off: "ok",
   failed: "bad",
   missed: "bad",
   cancelled: "neutral",

@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/client";
 import { Badge, Flash, PageHeader, PlatformChip, StateBadge, TargetBadge, VideoPreview, flashFrom } from "@/components/ui";
 import { getDb } from "@/lib/db/client";
 import { getPostView } from "@/lib/posts";
+import { captionFor } from "@/lib/publishing/captions";
 import { buildMetadata } from "@/lib/publishing/youtube/publisher";
 import { getSettings } from "@/lib/settings";
 import { formatDateTime, relative, toLocalInput } from "@/lib/time";
@@ -28,7 +29,8 @@ export default async function PostPage({
   const editable = view.state !== "cancelled" && view.display !== "published" && view.display !== "uploading";
   const hasYoutube = view.targets.some((t) => t.account.platform === "youtube");
   const yt = hasYoutube ? buildMetadata(view.content, settings) : null;
-  const canDelete = !view.targets.some((t) => ["uploading", "scheduled", "published"].includes(t.state));
+  const captionPlatforms = (["instagram", "tiktok", "linkedin"] as const).filter((p) => view.targets.some((t) => t.account.platform === p));
+  const canDelete = !view.targets.some((t) => ["uploading", "scheduled", "published", "handed_off"].includes(t.state));
 
   return (
     <>
@@ -81,6 +83,9 @@ export default async function PostPage({
                     </form>
                   )}
                   {t.lastError && <p className="w-full text-xs text-bad [overflow-wrap:anywhere]">{t.lastError}</p>}
+                  {t.state === "handed_off" && (
+                    <p className="w-full text-xs text-muted">Liegt als Entwurf in deiner TikTok-App – Text unten kopieren, dort einfügen und posten.</p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -136,30 +141,38 @@ export default async function PostPage({
             </form>
           )}
 
-          {yt && (
-            <section className="card p-4">
-              <h2 className="h2 mb-3">So geht es zu YouTube</h2>
-              <dl className="space-y-2 text-sm">
+          <section className="card p-4">
+            <h2 className="h2 mb-3">Texte je Plattform</h2>
+            <div className="space-y-4">
+              {yt && (
                 <div>
-                  <dt className="label">Titel</dt>
-                  <dd>{yt.snippet.title}</dd>
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <PlatformChip platform="youtube" />
+                    <span className="text-sm font-medium">{yt.snippet.title}</span>
+                    <Badge>Sichtbarkeit: {{ public: "öffentlich", unlisted: "nicht gelistet", private: "privat" }[settings.youtube.privacy]}</Badge>
+                    <Badge tone={view.content.aiGenerated ? "info" : "neutral"}>
+                      {view.content.aiGenerated ? "Als KI-Inhalt gekennzeichnet" : "Keine KI-Kennzeichnung"}
+                    </Badge>
+                  </div>
+                  <p className="whitespace-pre-line text-sm text-muted">{yt.snippet.description || "–"}</p>
                 </div>
-                <div>
-                  <dt className="label">Beschreibung</dt>
-                  <dd className="whitespace-pre-line">{yt.snippet.description || "–"}</dd>
+              )}
+              {captionPlatforms.map((p) => (
+                <div key={p}>
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <PlatformChip platform={p} />
+                    {p === "tiktok" && settings.tiktok.mode === "draft" && (
+                      <span className="text-xs text-muted">Entwurf: Text in der TikTok-App einfügen, KI-Label dort setzen</span>
+                    )}
+                  </div>
+                  <textarea readOnly rows={6} className="input text-sm" defaultValue={captionFor(p, view.content, settings)} />
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge>Sichtbarkeit: {{ public: "öffentlich", unlisted: "nicht gelistet", private: "privat" }[settings.youtube.privacy]}</Badge>
-                  <Badge tone={view.content.aiGenerated ? "info" : "neutral"}>
-                    {view.content.aiGenerated ? "Als KI-Inhalt gekennzeichnet" : "Keine KI-Kennzeichnung"}
-                  </Badge>
-                </div>
-              </dl>
-              <p className="mt-3 text-xs text-muted">
-                Texte änderst du in der <code>meta.json</code> im Backlog-Ordner (Feld <code>platforms.youtube</code>), danach „Neu einlesen“.
-              </p>
-            </section>
-          )}
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted">
+              Texte änderst du in der <code>meta.json</code> im Backlog-Ordner (Feld <code>platforms</code>), danach „Neu einlesen“.
+            </p>
+          </section>
         </div>
       </div>
     </>

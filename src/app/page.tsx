@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Badge, Flash, PageHeader, PlatformChip, StateBadge, flashFrom } from "@/components/ui";
-import { listAccounts } from "@/lib/accounts";
+import { PLATFORM_LABEL, accountsExpiringSoon, listAccounts } from "@/lib/accounts";
 import { getDb } from "@/lib/db/client";
-import { youtubeConfigured } from "@/lib/env";
 import { recentEvents } from "@/lib/events";
 import { listPostViews } from "@/lib/posts";
+import { missingEnv } from "@/lib/publishing/oauth";
+import { oauthProviders } from "@/lib/publishing/registry";
 import { getSettings, readHeartbeat, workerAlive } from "@/lib/settings";
 import { listSlots } from "@/lib/slots";
 import { formatDateTime, relative } from "@/lib/time";
@@ -30,7 +31,12 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   const todo: { text: string; href: string }[] = [];
   if (!alive) todo.push({ text: "Der Worker läuft nicht – ohne ihn wird nichts veröffentlicht. Starte ihn mit „pnpm dev“ oder „pnpm local:install“.", href: "/einstellungen#worker" });
   if (!accounts.length) todo.push({ text: "Noch kein Konto verbunden. Verbinde YouTube oder lege zum Ausprobieren einen Test-Kanal an.", href: "/konten" });
-  if (!youtubeConfigured()) todo.push({ text: "YouTube-Zugangsdaten fehlen in der .env (Anleitung in docs/SETUP.md).", href: "/konten" });
+  if (Object.values(oauthProviders).every((p) => missingEnv(p).length > 0)) {
+    todo.push({ text: "Noch keine Plattform eingerichtet – trage die Zugangsdaten in die .env ein (Anleitung in docs/SETUP.md).", href: "/konten" });
+  }
+  for (const a of accountsExpiringSoon(accounts)) {
+    todo.push({ text: `${a.name} (${PLATFORM_LABEL[a.platform]}) muss bis ${formatDateTime(a.reconnectBy!, tz)} neu verbunden werden.`, href: "/konten" });
+  }
   if (!listSlots(db).length) todo.push({ text: "Lege Posting-Zeiten an, z. B. 09:00 und 19:00.", href: "/einstellungen#slots" });
   for (const a of accounts.filter((a) => a.status === "needs_reconnect")) {
     todo.push({ text: `${a.name} muss neu verbunden werden: ${a.statusMessage ?? ""}`, href: "/konten" });

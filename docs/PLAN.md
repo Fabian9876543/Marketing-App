@@ -1,6 +1,6 @@
 # Plan: Fokuspilot Studio (Arbeitstitel)
 
-Stand: 06.11.2026 · **Phase 1 umgesetzt** (Grundgerüst + YouTube) · Website-Repo von Fokuspilot steht noch aus
+Stand: 06.11.2026 · **Phase 1 und 3 umgesetzt** (Grundgerüst, YouTube, Instagram, TikTok, LinkedIn) · Phase 2 wartet auf das Website-Repo von Fokuspilot
 
 ## Ziel
 
@@ -103,12 +103,15 @@ Getestet mit Unit-Tests, einem nachgebauten YouTube-Server und im Browser. Der e
 
 **Meilenstein:** Ein Prompt ergibt einen fertigen Short, der zur Freigabe in der Warteschlange liegt.
 
-### Phase 3: Die anderen drei Kanäle
+### Phase 3: Die anderen drei Kanäle ✅ umgesetzt
 
 - Instagram Reels per Resumable Upload
 - TikTok: zuerst als Entwurf in der TikTok-App, nach dem Audit direkt öffentlich
 - LinkedIn: persönliches Profil; Unternehmensseite nach Freigabe
 - Plattform-Limits beachten, fehlgeschlagene Posts mit Ursache anzeigen, Tokens automatisch erneuern, Erinnerung zum Neu-Verbinden (LinkedIn alle 60 Tage)
+
+Getestet mit Unit-Tests gegen nachgebaute Server von Meta, TikTok und LinkedIn. Der echte Test folgt, sobald die Entwickler-Apps eingerichtet sind (docs/SETUP.md, Abschnitte 5–7).
+Alle Weiterleitungen laufen über `http://localhost:4321`, weil Meta im Entwicklungsmodus nur localhost akzeptiert.
 
 ### Phase 4: Automation
 

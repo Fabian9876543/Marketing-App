@@ -32,7 +32,14 @@ export function getAccount(db: DB, id: number): Account | undefined {
 /** Konto anlegen oder (bei erneutem Verbinden) aktualisieren. */
 export async function upsertAccount(
   db: DB,
-  input: { platform: Platform; externalId: string; name: string; handle?: string | null; tokens?: StoredTokens | null },
+  input: {
+    platform: Platform;
+    externalId: string;
+    name: string;
+    handle?: string | null;
+    tokens?: StoredTokens | null;
+    reconnectBy?: Date | null;
+  },
 ): Promise<Account> {
   const tokens = input.tokens ? await sealTokens(input.tokens) : null;
   const values = {
@@ -41,6 +48,7 @@ export async function upsertAccount(
     name: input.name,
     handle: input.handle ?? null,
     tokens,
+    reconnectBy: input.reconnectBy ?? null,
     status: "active" as const,
     statusMessage: null,
   };
@@ -68,6 +76,11 @@ export async function readTokens(account: Account): Promise<StoredTokens | null>
 async function sealTokens(tokens: StoredTokens): Promise<string> {
   const { key } = await getEncryptionKey();
   return encrypt(JSON.stringify(tokens), key);
+}
+
+/** Konten, die bald (innerhalb von `days` Tagen) neu verbunden werden müssen. */
+export function accountsExpiringSoon(list: Account[], days = 7, now = Date.now()): Account[] {
+  return list.filter((a) => a.status === "active" && a.reconnectBy && a.reconnectBy.getTime() - now < days * 86_400_000);
 }
 
 export function markNeedsReconnect(db: DB, accountId: number, message: string): void {

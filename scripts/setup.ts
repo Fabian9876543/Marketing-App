@@ -7,7 +7,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { backlogDir } from "../src/lib/backlog";
 import { getDb } from "../src/lib/db/client";
-import { appBaseUrl, dataDir, loadDotEnv, youtubeConfigured } from "../src/lib/env";
+import { PLATFORM_LABEL } from "../src/lib/accounts";
+import { appBaseUrl, dataDir, loadDotEnv } from "../src/lib/env";
+import { missingEnv } from "../src/lib/publishing/oauth";
+import { oauthProviders } from "../src/lib/publishing/registry";
 import { getEncryptionKey } from "../src/lib/secrets/keystore";
 import { getSettings } from "../src/lib/settings";
 
@@ -53,8 +56,12 @@ async function main() {
   fs.mkdirSync(backlogDir(settings.contentDir), { recursive: true });
   ok(`Content-Ordner: ${settings.contentDir}`);
 
-  if (youtubeConfigured()) ok("YouTube-Zugangsdaten in .env eingetragen");
-  else warn("YouTube noch nicht eingerichtet – siehe docs/SETUP.md, Schritt „YouTube verbinden“");
+  for (const provider of Object.values(oauthProviders)) {
+    const missing = missingEnv(provider);
+    const label = PLATFORM_LABEL[provider.platform];
+    if (!missing.length) ok(`${label}: Zugangsdaten eingetragen`);
+    else warn(`${label}: noch nicht eingerichtet (${missing.join(", ")}) – siehe docs/SETUP.md`);
+  }
 
   console.log(`\nNächster Schritt: pnpm dev  →  ${appBaseUrl()}\n`);
 }

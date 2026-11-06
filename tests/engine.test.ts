@@ -249,3 +249,50 @@ describe("Worker-Engine", () => {
     expect(target(db, id).lastError).toContain("Instagram wird in dieser Version noch nicht unterstützt");
   });
 });
+
+describe("Worker-Engine – Phase 3", () => {
+  it("„Plattform verarbeitet noch“ zählt nicht als Versuch und wird nach einer Minute erneut geprüft", async () => {
+    const { db, content, account } = await setup("instagram");
+    const base = Date.now();
+    const c = clock(base);
+    const { pub, calls } = fakePublisher("instagram", (_i, n) => {
+      if (n < 3) throw new PublishError("processing", "verarbeitet noch");
+    });
+    const engine = createEngine({ db, publishers: { instagram: pub }, getAccessToken: async () => "t", now: c.now });
+    const id = createPost(db, { contentId: content.id, scheduledAt: new Date(base + MIN), accountIds: [account.id], approve: true });
+    c.advance(MIN);
+    await engine.tick();
+    expect(target(db, id)).toMatchObject({ state: "pending", attempts: 0, lastError: null });
+    expect(target(db, id).nextAttemptAt!.getTime()).toBe(c.now().getTime() + MIN);
+    c.advance(MIN);
+    await engine.tick();
+    c.advance(MIN);
+    await engine.tick();
+    expect(calls).toHaveLength(3);
+    expect(target(db, id)).toMatchObject({ state: "published", attempts: 1 });
+  });
+
+  it("Entwurf an die App übergeben gilt als erledigt", async () => {
+    const { db, content, account } = await setup("tiktok");
+    const base = Date.now();
+    const pub: Publisher = { platform: "tiktok", publish: async () => ({ state: "handed_off", externalId: "pub-1" }) };
+    const engine = createEngine({ db, publishers: { tiktok: pub }, getAccessToken: async () => "t", now: () => new Date(base + MIN) });
+    const id = createPost(db, { contentId: content.id, scheduledAt: new Date(base + MIN), accountIds: [account.id], approve: true });
+    const r = await engine.tick();
+    expect(r.handedOff).toBe(1);
+    expect(target(db, id).state).toBe("handed_off");
+    expect(getPostView(db, id)!.display).toBe("published");
+  });
+
+  it("zu lange Videos werden vor dem Upload abgelehnt", async () => {
+    const { db, content, account } = await setup("instagram");
+    db.update(contents).set({ durationSec: 1200 }).where(eq(contents.id, content.id)).run();
+    const base = Date.now();
+    const { pub, calls } = fakePublisher("instagram", () => {}, { maxDurationSec: () => 900 });
+    const engine = createEngine({ db, publishers: { instagram: pub }, getAccessToken: async () => "t", now: () => new Date(base + MIN) });
+    const id = createPost(db, { contentId: content.id, scheduledAt: new Date(base + MIN), accountIds: [account.id], approve: true });
+    await engine.tick();
+    expect(calls).toHaveLength(0);
+    expect(target(db, id).lastError).toContain("höchstens 900 s");
+  });
+});

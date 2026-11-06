@@ -209,6 +209,6 @@ describe("YouTube", () => {
     expect(url.searchParams.get("code_challenge_method")).toBe("S256");
     expect(url.searchParams.get("access_type")).toBe("offline");
     expect(url.searchParams.get("scope")).toContain("youtube.upload");
-    expect(url.searchParams.get("redirect_uri")).toBe("http://127.0.0.1:4321/api/oauth/youtube/callback");
+    expect(url.searchParams.get("redirect_uri")).toBe("http://localhost:4321/api/oauth/youtube/callback");
   });
 });

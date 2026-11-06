@@ -1,5 +1,6 @@
 import type { StoredTokens } from "../../accounts";
-import { appBaseUrl, googleConfig } from "../../env";
+import { googleConfig, oauthRedirectUri } from "../../env";
+import type { OAuthProvider } from "../oauth";
 import { PublishError } from "../types";
 
 export const YOUTUBE_SCOPES = [
@@ -7,7 +8,7 @@ export const YOUTUBE_SCOPES = [
   "https://www.googleapis.com/auth/youtube.readonly",
 ];
 
-export const youtubeRedirectUri = () => `${appBaseUrl()}/api/oauth/youtube/callback`;
+export const youtubeRedirectUri = () => oauthRedirectUri("youtube");
 
 export function buildAuthUrl(opts: { state: string; codeChallenge: string }): string {
   const c = googleConfig();
@@ -91,3 +92,21 @@ export async function fetchMyChannel(accessToken: string): Promise<ChannelInfo> 
   if (!ch) throw new Error("Zu diesem Google-Konto gibt es keinen YouTube-Kanal");
   return { id: ch.id, title: ch.snippet?.title ?? "YouTube-Kanal", handle: ch.snippet?.customUrl ?? null };
 }
+
+export const youtubeOAuth: OAuthProvider = {
+  platform: "youtube",
+  requiredEnv: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+  pkce: "base64url",
+  redirectUri: youtubeRedirectUri,
+  authUrl: ({ state, codeChallenge }) => buildAuthUrl({ state, codeChallenge: codeChallenge! }),
+  async connect({ code, codeVerifier }) {
+    const tokens = await exchangeCode(code, codeVerifier);
+    if (!tokens.refreshToken) {
+      throw new Error(
+        "Google hat kein Refresh-Token geliefert. Entferne den Zugriff unter myaccount.google.com/permissions und verbinde neu.",
+      );
+    }
+    const channel = await fetchMyChannel(tokens.accessToken);
+    return [{ externalId: channel.id, name: channel.title, handle: channel.handle, tokens }];
+  },
+};

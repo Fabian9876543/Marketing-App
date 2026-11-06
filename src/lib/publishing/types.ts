@@ -2,12 +2,13 @@ import type { Account, Content, Platform, Post, PostTarget, UploadSession } from
 import type { AppSettings } from "../settings";
 
 /**
- * retryable: später erneut versuchen (Netzwerk, 5xx, Rate-Limit)
- * quota:     Tageslimit erreicht – ohne Versuch zu zählen später erneut
- * auth:      Konto muss neu verbunden werden
- * fatal:     ohne Änderung durch dich hat ein neuer Versuch keinen Sinn
+ * retryable:  später erneut versuchen (Netzwerk, 5xx, Rate-Limit)
+ * quota:      Tageslimit erreicht – ohne Versuch zu zählen später erneut
+ * processing: hochgeladen, die Plattform verarbeitet noch – gleich wieder nachsehen (zählt nicht als Versuch)
+ * auth:       Konto muss neu verbunden werden
+ * fatal:      ohne Änderung durch dich hat ein neuer Versuch keinen Sinn
  */
-export type PublishErrorKind = "retryable" | "quota" | "auth" | "fatal";
+export type PublishErrorKind = "retryable" | "quota" | "processing" | "auth" | "fatal";
 
 export class PublishError extends Error {
   constructor(
@@ -45,14 +46,20 @@ export type PublishInput = {
 };
 
 export type PublishOutcome = {
-  /** published = jetzt online; scheduled = hochgeladen, die Plattform veröffentlicht zur geplanten Zeit */
-  state: "published" | "scheduled";
+  /**
+   * published  = jetzt online
+   * scheduled  = hochgeladen, die Plattform veröffentlicht zur geplanten Zeit
+   * handed_off = als Entwurf in der App der Plattform abgelegt, du veröffentlichst dort selbst
+   */
+  state: "published" | "scheduled" | "handed_off";
   externalId: string;
   externalUrl?: string;
 };
 
 export interface Publisher {
   platform: Platform;
+  /** Längste erlaubte Videodauer in Sekunden (vor dem Upload geprüft). */
+  maxDurationSec?(settings: AppSettings): number;
   /**
    * Wie weit im Voraus darf hochgeladen werden, sodass die Plattform selbst zur
    * geplanten Zeit veröffentlicht? 0 = gar nicht.
@@ -68,3 +75,9 @@ export interface Publisher {
   /** Beginn des aktuellen Kontingent-Tages. */
   quotaDayStart?(now: Date): Date;
 }
+
+/** Wie lange darf eine Plattform an einem hochgeladenen Video „verarbeiten“, bevor wir aufgeben? */
+export const MAX_PROCESSING_MS = 6 * 60 * 60_000;
+
+/** Kleine Wartehilfe für Statusabfragen. */
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

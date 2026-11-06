@@ -35,6 +35,7 @@ export type EngineDeps = {
 export type TickReport = {
   published: number;
   scheduled: number;
+  handedOff: number;
   retrying: number;
   failed: number;
   missed: number;
@@ -96,7 +97,7 @@ export function createEngine(deps: EngineDeps) {
   async function tick(): Promise<TickReport> {
     const at = now();
     const settings = getSettings(db);
-    const report: TickReport = { published: 0, scheduled: 0, retrying: 0, failed: 0, missed: 0, synced: 0, nextDueAt: null };
+    const report: TickReport = { published: 0, scheduled: 0, handedOff: 0, retrying: 0, failed: 0, missed: 0, synced: 0, nextDueAt: null };
 
     // 1) Vorab hochgeladene Posts gelten zur geplanten Zeit als veröffentlicht (die Plattform schaltet sie frei).
     for (const job of loadJobs(["scheduled"], (t) => !t.syncNeeded)) {
@@ -153,6 +154,12 @@ export function createEngine(deps: EngineDeps) {
         report.failed++;
         continue;
       }
+      const maxSec = publisher.maxDurationSec?.(settings);
+      if (maxSec && job.content.durationSec && job.content.durationSec > maxSec) {
+        fail(job, `Video ist ${Math.round(job.content.durationSec)} s lang – ${platformName(job.account.platform)} erlaubt höchstens ${maxSec} s`);
+        report.failed++;
+        continue;
+      }
 
       // Tageslimit der Plattform (gemeinsam für alle Konten dieser Plattform)
       if (publisher.dailyLimit && publisher.quotaDayStart) {
@@ -201,12 +208,13 @@ export function createEngine(deps: EngineDeps) {
         nextAttemptAt: null,
         uploadSession: null,
       });
-      log(
-        "info",
-        result.state === "published" ? `${label(job)}: veröffentlicht` : `${label(job)}: hochgeladen, die Plattform veröffentlicht zur geplanten Zeit`,
-        job.target.id,
-      );
-      return result.state === "published" ? "published" : "scheduled";
+      const message = {
+        published: "veröffentlicht",
+        scheduled: "hochgeladen, die Plattform veröffentlicht zur geplanten Zeit",
+        handed_off: "als Entwurf in der App abgelegt – dort fertigstellen und posten",
+      }[result.state];
+      log("info", `${label(job)}: ${message}`, job.target.id);
+      return result.state === "handed_off" ? "handedOff" : result.state;
     } catch (err) {
       return handleFailure(job, toPublishError(err));
     }
@@ -221,6 +229,17 @@ export function createEngine(deps: EngineDeps) {
         updateTarget(job.target.id, { ...base, state: "failed" });
         log("error", `${label(job)}: ${err.message}`, job.target.id);
         return "failed";
+      case "processing":
+        // Die Plattform verarbeitet noch – zählt nicht als Versuch, gleich wieder nachsehen.
+        updateTarget(job.target.id, {
+          lockedAt: null,
+          lastError: null,
+          state: "pending",
+          attempts: Math.max(0, job.target.attempts - 1),
+          nextAttemptAt: err.retryAt ?? new Date(at.getTime() + 60_000),
+        });
+        log("info", `${label(job)}: ${err.message}`, job.target.id);
+        return null;
       case "quota":
         // Zählt nicht als Versuch.
         updateTarget(job.target.id, {

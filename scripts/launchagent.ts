@@ -109,7 +109,7 @@ function install() {
     launchctl(["bootstrap", domain(), file]);
     console.log(`✓ ${def.label} installiert und gestartet`);
   }
-  console.log(`\nOberfläche: http://127.0.0.1:${APP_PORT}\nLogs:       ${logs}`);
+  console.log(`\nOberfläche: http://localhost:${APP_PORT}\nLogs:       ${logs}`);
 }
 
 function uninstall() {

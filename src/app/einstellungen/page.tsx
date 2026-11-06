@@ -4,7 +4,10 @@ import { addSlotAction, removeSlotAction, saveSettingsAction, toggleSlotAction }
 import { SubmitButton } from "@/components/client";
 import { Badge, Flash, PageHeader, flashFrom } from "@/components/ui";
 import { getDb } from "@/lib/db/client";
-import { dataDir, logDir, youtubeConfigured } from "@/lib/env";
+import { PLATFORM_LABEL } from "@/lib/accounts";
+import { dataDir, logDir } from "@/lib/env";
+import { missingEnv } from "@/lib/publishing/oauth";
+import { oauthProviders } from "@/lib/publishing/registry";
 import { getEncryptionKey } from "@/lib/secrets/keystore";
 import { getSettings, readHeartbeat, workerAlive } from "@/lib/settings";
 import { WEEKDAY_SHORT, listSlots } from "@/lib/slots";
@@ -148,6 +151,42 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             Vorab hochladen: Öffentliche Videos gehen bis zu so viele Tage vorher als „privat mit Veröffentlichungszeit“ zu YouTube. YouTube schaltet sie dann
             selbst frei – auch wenn dein Mac aus ist.
           </p>
+
+          <h2 className="h2 border-t border-line pt-4">Instagram, TikTok, LinkedIn</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="tiktokMode">
+                TikTok-Modus
+              </label>
+              <select id="tiktokMode" name="tiktokMode" defaultValue={s.tiktok.mode} className="input">
+                <option value="draft">Entwurf in der TikTok-App (ohne Audit)</option>
+                <option value="direct_private">Direkt, nur für mich sichtbar (Test)</option>
+                <option value="direct_public">Direkt öffentlich (nach Audit)</option>
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="liVisibility">
+                LinkedIn-Sichtbarkeit
+              </label>
+              <select id="liVisibility" name="liVisibility" defaultValue={s.linkedin.visibility} className="input">
+                <option value="PUBLIC">Öffentlich</option>
+                <option value="CONNECTIONS">Nur Kontakte</option>
+              </select>
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="igShareToFeed" defaultChecked={s.instagram.shareToFeed} /> Instagram-Reels auch im Feed zeigen
+          </label>
+          <div>
+            <label className="label" htmlFor="aiDisclosure">
+              KI-Hinweis im Text (wo die Plattform keine eigene Kennzeichnung per API hat)
+            </label>
+            <input id="aiDisclosure" name="aiDisclosure" maxLength={200} defaultValue={s.aiDisclosure} className="input" />
+          </div>
+          <p className="text-xs text-muted">
+            Ändert sich der TikTok-Modus von „Entwurf“ auf „direkt“, braucht TikTok die zusätzliche Berechtigung zum Veröffentlichen – verbinde das
+            TikTok-Konto danach neu.
+          </p>
           <div className="text-right">
             <SubmitButton className="btn btn-primary">Speichern</SubmitButton>
           </div>
@@ -175,8 +214,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <dd className="break-all font-mono text-xs">{logDir()}</dd>
             <dt className="text-muted">Schlüssel für Zugangsdaten</dt>
             <dd className="break-all text-xs">{keySource}</dd>
-            <dt className="text-muted">YouTube-Zugangsdaten (.env)</dt>
-            <dd>{youtubeConfigured() ? <Badge tone="ok">eingetragen</Badge> : <Badge tone="warn">fehlen</Badge>}</dd>
+            <dt className="text-muted">Plattform-Zugangsdaten (.env)</dt>
+            <dd className="flex flex-wrap gap-1">
+              {Object.values(oauthProviders).map((p) => (
+                <Badge key={p.platform} tone={missingEnv(p).length ? "warn" : "ok"}>
+                  {PLATFORM_LABEL[p.platform]}: {missingEnv(p).length ? "fehlt" : "eingetragen"}
+                </Badge>
+              ))}
+            </dd>
           </dl>
         </section>
       </div>

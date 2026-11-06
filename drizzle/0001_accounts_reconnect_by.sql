@@ -1,0 +1,1 @@
+ALTER TABLE `accounts` ADD `reconnect_by` integer;

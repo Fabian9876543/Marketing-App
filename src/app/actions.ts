@@ -194,6 +194,10 @@ export async function saveSettingsAction(form: FormData) {
         categoryId: String(form.get("ytCategoryId") ?? "28"),
         addShortsTag: form.get("ytAddShortsTag") === "on",
       },
+      tiktok: { mode: form.get("tiktokMode") ?? current.tiktok.mode },
+      instagram: { shareToFeed: form.get("igShareToFeed") === "on" },
+      linkedin: { visibility: form.get("liVisibility") ?? current.linkedin.visibility },
+      aiDisclosure: String(form.get("aiDisclosure") ?? current.aiDisclosure).trim(),
     });
     if (!parsed.success) throw new Error(`Ungültige Eingabe: ${parsed.error.issues.map((i) => i.path.join(".")).join(", ")}`);
     updateSettings(db, parsed.data);

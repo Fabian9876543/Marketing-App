@@ -39,6 +39,7 @@ export const TARGET_LABEL: Record<PostTarget["state"], string> = {
   uploading: "Wird hochgeladen",
   scheduled: "Bei Plattform eingeplant",
   published: "Veröffentlicht",
+  handed_off: "Entwurf in der App",
   failed: "Fehlgeschlagen",
   missed: "Verpasst",
   cancelled: "Abgebrochen",
@@ -49,10 +50,11 @@ export function displayState(post: Post, targets: PostTarget[]): DisplayState {
   const live = targets.filter((t) => t.state !== "cancelled");
   if (live.some((t) => t.state === "failed" || t.state === "missed")) return "failed";
   if (post.state === "review") return "review";
+  const done = (t: PostTarget) => t.state === "published" || t.state === "handed_off";
   if (live.some((t) => t.state === "uploading")) return "uploading";
-  if (live.length && live.every((t) => t.state === "published")) return "published";
-  if (live.some((t) => t.state === "published")) return "partial";
-  if (live.length && live.every((t) => t.state === "scheduled" || t.state === "published")) return "platform";
+  if (live.length && live.every(done)) return "published";
+  if (live.some(done)) return "partial";
+  if (live.length && live.every((t) => t.state === "scheduled" || done(t))) return "platform";
   return "planned";
 }
 
@@ -172,7 +174,7 @@ export function retryTarget(db: DB, targetId: number): void {
 export function deletePost(db: DB, id: number): void {
   requirePost(db, id);
   const targets = db.select().from(postTargets).where(eq(postTargets.postId, id)).all();
-  if (targets.some((t) => ["uploading", "scheduled", "published"].includes(t.state))) {
+  if (targets.some((t) => ["uploading", "scheduled", "published", "handed_off"].includes(t.state))) {
     throw new PostError("Bereits hochgeladene Posts können nur abgesagt, nicht gelöscht werden");
   }
   db.delete(posts).where(eq(posts.id, id)).run();

@@ -10,8 +10,17 @@ export function loadDotEnv(cwd = process.cwd()): void {
 
 export const APP_PORT = 4321;
 
+/**
+ * Adresse, unter der die Oberfläche erreichbar ist. Daraus entstehen die OAuth-Weiterleitungen.
+ * „localhost“ statt 127.0.0.1, weil Meta im Entwicklungsmodus nur localhost akzeptiert.
+ */
 export function appBaseUrl(): string {
-  return (process.env.APP_BASE_URL || `http://127.0.0.1:${APP_PORT}`).replace(/\/+$/, "");
+  return (process.env.APP_BASE_URL || `http://localhost:${APP_PORT}`).replace(/\/+$/, "");
+}
+
+/** Weiterleitungs-URI für die Anmeldung bei einer Plattform (überschreibbar, z. B. für eine HTTPS-Weiterleitungsseite). */
+export function oauthRedirectUri(platform: string): string {
+  return process.env[`${platform.toUpperCase()}_REDIRECT_URI`] || `${appBaseUrl()}/api/oauth/${platform}/callback`;
 }
 
 /** Ordner für Datenbank, Schlüsseldatei (nur ohne Keychain) und Logs. */
@@ -44,3 +53,33 @@ export const youtubeConfigured = () => {
   const c = googleConfig();
   return Boolean(c.clientId && c.clientSecret);
 };
+
+export const metaConfig = () => {
+  const version = process.env.META_GRAPH_VERSION || "v24.0";
+  return {
+    appId: process.env.META_APP_ID ?? "",
+    appSecret: process.env.META_APP_SECRET ?? "",
+    /** Konfigurations-ID aus „Facebook Login for Business“ (nötig für fortsetzbare Reels-Uploads) */
+    configId: process.env.META_CONFIG_ID ?? "",
+    version,
+    dialogUrl: process.env.META_DIALOG_URL || `https://www.facebook.com/${version}/dialog/oauth`,
+    graphBase: (process.env.META_GRAPH_BASE || "https://graph.facebook.com").replace(/\/+$/, ""),
+    ruploadBase: (process.env.META_RUPLOAD_BASE || "https://rupload.facebook.com").replace(/\/+$/, ""),
+  };
+};
+
+export const tiktokConfig = () => ({
+  clientKey: process.env.TIKTOK_CLIENT_KEY ?? "",
+  clientSecret: process.env.TIKTOK_CLIENT_SECRET ?? "",
+  authUrl: process.env.TIKTOK_AUTH_URL || "https://www.tiktok.com/v2/auth/authorize/",
+  apiBase: (process.env.TIKTOK_API_BASE || "https://open.tiktokapis.com").replace(/\/+$/, ""),
+});
+
+export const linkedinConfig = () => ({
+  clientId: process.env.LINKEDIN_CLIENT_ID ?? "",
+  clientSecret: process.env.LINKEDIN_CLIENT_SECRET ?? "",
+  authBase: (process.env.LINKEDIN_AUTH_BASE || "https://www.linkedin.com/oauth/v2").replace(/\/+$/, ""),
+  apiBase: (process.env.LINKEDIN_API_BASE || "https://api.linkedin.com").replace(/\/+$/, ""),
+  /** Monatsversion der LinkedIn-API (JJJJMM); LinkedIn unterstützt jede Version etwa ein Jahr. */
+  version: process.env.LINKEDIN_API_VERSION || "202605",
+});
