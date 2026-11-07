@@ -2,11 +2,13 @@
 # (Schutz vor kompromittierten Releases; neuere pnpm-Versionen prüfen das ohnehin).
 minimumReleaseAge: 1440
 
-# Pakete, die beim Installieren etwas bauen dürfen (better-sqlite3: SQLite, esbuild: tsx/Vite).
-# allowBuilds gilt ab pnpm 11, onlyBuiltDependencies für pnpm 10.
+# Pakete, die beim Installieren etwas bauen dürfen. allowBuilds gilt ab pnpm 11, die anderen beiden für pnpm 10.
+# better-sqlite3 bringt fertige Binärdateien für macOS, Linux und Windows mit (prebuilds/) – nichts zu kompilieren.
+# Ohne diesen Eintrag würde pnpm 10 „node-gyp rebuild“ starten, was ohne Compiler scheitert.
 allowBuilds:
-  better-sqlite3: true
   esbuild: true
+  better-sqlite3: false
 onlyBuiltDependencies:
-  - better-sqlite3
   - esbuild
+ignoredBuiltDependencies:
+  - better-sqlite3
