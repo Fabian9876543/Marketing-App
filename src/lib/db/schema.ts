@@ -28,6 +28,10 @@ export const projects = sqliteTable("projects", {
   /** Werden genutzt, wenn ein Short keine eigenen Hashtags hat */
   defaultHashtags: text("default_hashtags", { mode: "json" }).$type<string[]>().notNull().default([]),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  /** Freie Posting-Zeiten automatisch mit noch nicht geplanten Shorts aus dem Backlog füllen (zur Freigabe) */
+  autoFill: integer("auto_fill", { mode: "boolean" }).notNull().default(false),
+  /** Wie viele Tage im Voraus gefüllt wird */
+  autoFillDays: integer("auto_fill_days").notNull().default(3),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -141,7 +145,8 @@ export const posts = sqliteTable(
       .references(() => contents.id),
     scheduledAt: integer("scheduled_at", { mode: "timestamp_ms" }).notNull(),
     state: text("state", { enum: ["review", "approved", "cancelled"] }).notNull().default("review"),
-    createdBy: text("created_by", { enum: ["user", "agent"] }).notNull().default("user"),
+    /** user = von Hand, agent = von Claude im Studio, auto = automatisch in einen freien Slot gelegt */
+    createdBy: text("created_by", { enum: ["user", "agent", "auto"] }).notNull().default("user"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -261,6 +266,8 @@ export const studioSessions = sqliteTable(
     claudeSessionId: text("claude_session_id").notNull().unique(),
     /** Claude hat die Sitzung angelegt (danach mit --resume fortsetzen) */
     started: integer("started", { mode: "boolean" }).notNull().default(false),
+    /** Von dieser Automation gestartet (null = von Hand) */
+    automationId: integer("automation_id").references(() => automations.id, { onDelete: "set null" }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -318,3 +325,35 @@ export const studioMessages = sqliteTable(
 export type StudioSession = typeof studioSessions.$inferSelect;
 export type StudioRun = typeof studioRuns.$inferSelect;
 export type StudioMessage = typeof studioMessages.$inferSelect;
+
+/* ---------- Automation (Phase 4) ---------- */
+
+/** Ein Rezept, nach dem Claude regelmäßig neue Shorts baut. */
+export const automations = sqliteTable(
+  "automations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Das Rezept: wie die Shorts aussehen sollen (Auftrag, Format, Rückmeldungen aus dem Vorbild-Chat) */
+    recipe: text("recipe").notNull(),
+    /** Ortszeit „HH:MM“ laut Einstellungen */
+    time: text("time").notNull().default("06:00"),
+    /** Wochentage 1 = Montag … 7 = Sonntag */
+    weekdays: text("weekdays", { mode: "json" }).$type<number[]>().notNull().default([1, 2, 3, 4, 5]),
+    shortsPerRun: integer("shorts_per_run").notNull().default(1),
+    /** Neue Shorts nach dem Lauf in freie Slots einplanen (zur Freigabe) */
+    autoSchedule: integer("auto_schedule", { mode: "boolean" }).notNull().default(true),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    /** Vorbild-Chat, aus dem das Rezept entstanden ist */
+    sourceSessionId: integer("source_session_id"),
+    lastRunAt: integer("last_run_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("automations_project").on(t.projectId)],
+);
+
+export type Automation = typeof automations.$inferSelect;

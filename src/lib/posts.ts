@@ -64,7 +64,7 @@ export class PostError extends Error {}
 
 export function createPost(
   db: DB,
-  input: { contentId: number; scheduledAt: Date; accountIds: number[]; approve: boolean; createdBy?: "user" | "agent" },
+  input: { contentId: number; scheduledAt: Date; accountIds: number[]; approve: boolean; createdBy?: "user" | "agent" | "auto" },
 ): number {
   const content = db.select().from(contents).where(eq(contents.id, input.contentId)).get();
   if (!content) throw new PostError("Inhalt nicht gefunden");

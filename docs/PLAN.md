@@ -1,6 +1,6 @@
 # Plan: Fokuspilot Studio (Arbeitstitel)
 
-Stand: 07.11.2026 · **Phase 1, 2 und 3 umgesetzt** (Grundgerüst, Studio mit Claude Code, YouTube, Instagram, TikTok, LinkedIn) · Nächstes: Phase 4 (Automation) und 5 (Analytics)
+Stand: 07.11.2026 · **Phase 1–4 umgesetzt** (Grundgerüst, Studio mit Claude Code, YouTube, Instagram, TikTok, LinkedIn, Automationen) · Nächstes: Phase 5 (Analytics)
 
 ## Update 07.11.2026: Mehrere Projekte
 
@@ -128,10 +128,17 @@ Umgesetzt am 07.11.2026 (projektneutral, für jedes Projekt):
 Getestet mit Unit-Tests gegen nachgebaute Server von Meta, TikTok und LinkedIn. Der echte Test folgt, sobald die Entwickler-Apps eingerichtet sind (docs/SETUP.md, Abschnitte 5–7).
 Alle Weiterleitungen laufen über `http://localhost:4321`, weil Meta im Entwicklungsmodus nur localhost akzeptiert.
 
-### Phase 4: Automation
+### Phase 4: Automation ✅ umgesetzt
 
 - Ein gelungener Chat wird zum „Rezept“. Zu einer festen Uhrzeit (über launchd) erzeugt das Tool X Shorts pro Lauf, jeden Tag mit neuem Blickwinkel.
-- Freie Slots füllen sich automatisch aus dem Backlog, aber nur mit freigegebenen Shorts.
+- Freie Slots füllen sich automatisch aus dem Backlog. Die Posts warten immer auf Freigabe (umgesetzt als „zur Freigabe einplanen“; nichts geht ohne Freigabe online).
+
+Umgesetzt am 07.11.2026:
+- „Als Automation speichern“ macht aus einem Chat ein Rezept (Auftrag + Rückmeldungen + Vorbild-Short), das sich bearbeiten lässt.
+- Der Worker startet fällige Läufe als frische Studio-Chats (Wochentage, Uhrzeit, 1–5 Shorts pro Lauf). Verpasste Läufe holt er innerhalb von 6 Stunden nach, ältere überspringt er.
+- Nach dem Lauf plant er neue Shorts optional in freie Slots ein, zur Freigabe.
+- Pro Projekt lassen sich freie Zeiten der nächsten n Tage mit ungeplanten Backlog-Shorts füllen, zur Freigabe.
+- Lernen aus den Zahlen (Phase 5) fließt später in die Rezepte ein.
 
 ### Phase 5: Analytics und Lernen
 

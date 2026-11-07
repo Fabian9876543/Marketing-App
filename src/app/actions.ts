@@ -36,6 +36,15 @@ import {
 import { addLinkReference, addNoteReference, deleteReference, isCategory, updateReference } from "@/lib/references";
 import { QUICK_PROMPTS, cancelSession, createSession, deleteSession, getSession, sendMessage } from "@/lib/studio/sessions";
 import { setupStudio } from "@/lib/studio/workspace";
+import {
+  createAutomation,
+  deleteAutomation,
+  getAutomation,
+  setAutomationEnabled,
+  startAutomationRun,
+  updateAutomation,
+} from "@/lib/automation";
+import { projects } from "@/lib/db/schema";
 import { appSettingsSchema, getSettings, updateSettings } from "@/lib/settings";
 import { addSlot, listSlots, nextFreeSlot, removeSlot, toggleSlot } from "@/lib/slots";
 import { formatDateTime, fromLocalInput, isValidTimezone } from "@/lib/time";
@@ -426,4 +435,77 @@ export async function deleteStudioSessionAction(form: FormData) {
     error = (err as Error).message;
   }
   finish("/studio", error ? { error } : { ok: "Chat gelöscht" });
+}
+
+/* ---------- Automationen ---------- */
+
+const automationInput = (form: FormData) => ({
+  name: str(form, "name"),
+  recipe: str(form, "recipe"),
+  time: str(form, "time"),
+  weekdays: form.getAll("weekdays").map(Number),
+  shortsPerRun: Number(form.get("shortsPerRun") ?? 1),
+  autoSchedule: form.get("autoSchedule") === "on",
+  enabled: form.get("enabled") === "on",
+  sourceSessionId: Number(form.get("sourceSessionId")) || null,
+});
+
+export async function saveAutomationAction(form: FormData) {
+  let target = backTo(form, "/studio/automationen");
+  let msg: { ok?: string; error?: string };
+  try {
+    const db = getDb();
+    const id = Number(form.get("automationId")) || 0;
+    if (id) {
+      const a = updateAutomation(db, id, automationInput(form));
+      msg = { ok: `Automation „${a.name}“ gespeichert` };
+    } else {
+      const a = createAutomation(db, formProject(form).id, automationInput(form));
+      msg = { ok: `Automation „${a.name}“ angelegt${a.enabled ? "" : " (pausiert)"}` };
+    }
+    target = "/studio/automationen";
+  } catch (err) {
+    msg = { error: (err as Error).message };
+  }
+  finish(target, msg);
+}
+
+export async function toggleAutomationAction(form: FormData) {
+  await attempt(form, "/studio/automationen", () => {
+    const enabled = form.get("enabled") === "1";
+    setAutomationEnabled(getDb(), num(form, "automationId"), enabled);
+    return enabled ? "Automation aktiv" : "Automation pausiert";
+  });
+}
+
+export async function runAutomationNowAction(form: FormData) {
+  let target = "/studio/automationen";
+  let msg: { ok?: string; error?: string } = {};
+  try {
+    const db = getDb();
+    const a = getAutomation(db, num(form, "automationId"));
+    if (!a) throw new Error("Automation nicht gefunden");
+    const { session } = startAutomationRun(db, a);
+    target = `/studio?chat=${session.id}`;
+  } catch (err) {
+    msg = { error: (err as Error).message };
+  }
+  finish(target, msg);
+}
+
+export async function deleteAutomationAction(form: FormData) {
+  await attempt(form, "/studio/automationen", () => {
+    deleteAutomation(getDb(), num(form, "automationId"));
+    return "Automation gelöscht – ihre bisherigen Chats bleiben erhalten";
+  });
+}
+
+export async function updateAutoFillAction(form: FormData) {
+  await attempt(form, "/projekte", () => {
+    const project = formProject(form);
+    const autoFill = form.get("autoFill") === "on";
+    const days = Math.min(14, Math.max(1, Number(form.get("autoFillDays")) || 3));
+    getDb().update(projects).set({ autoFill, autoFillDays: days }).where(eq(projects.id, project.id)).run();
+    return autoFill ? `Freie Slots der nächsten ${days} Tage werden automatisch gefüllt (zur Freigabe)` : "Automatisches Füllen ausgeschaltet";
+  });
 }

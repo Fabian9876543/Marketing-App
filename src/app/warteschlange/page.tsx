@@ -95,7 +95,8 @@ function QueueItem({ view, tz, back, showProject }: { view: PostView; tz: string
             {view.content.title}
           </Link>
           <StateBadge state={view.display} />
-          {view.createdBy === "agent" && <span className="text-xs text-muted">von Claude erstellt</span>}
+          {view.createdBy === "agent" && <span className="text-xs text-muted">von Claude eingeplant</span>}
+          {view.createdBy === "auto" && <span className="text-xs text-muted">automatisch eingeplant</span>}
           {showProject && <ProjectBadge project={view.project} link />}
         </div>
         <p className={`text-sm ${overdue ? "text-bad" : "text-muted"}`}>

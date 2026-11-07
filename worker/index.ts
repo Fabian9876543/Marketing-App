@@ -10,6 +10,8 @@ import { publishers } from "@/lib/publishing/registry";
 import { getAccessToken } from "@/lib/publishing/tokens";
 import { listProjects } from "@/lib/projects";
 import { writeHeartbeat } from "@/lib/settings";
+import { autoFillProject } from "@/lib/autoplan";
+import { runDueAutomations } from "@/lib/automation";
 import { StudioQueue } from "@/lib/studio/runner";
 import { KeepAwake } from "@/lib/worker/awake";
 import { createEngine } from "@/lib/worker/engine";
@@ -44,12 +46,16 @@ async function tick() {
       lastScan = Date.now();
       for (const project of listProjects(db)) {
         const r = await importBacklog(db, project);
+        // „Freie Slots füllen“ (nur Projekte, die das eingeschaltet haben) – immer zur Freigabe
+        autoFillProject(db, project);
         if (r.added) logEvent(db, "info", "backlog", `[${project.name}] ${r.added} neue Shorts im Backlog gefunden`);
         for (const e of r.errors) logEvent(db, "warn", "backlog", `[${project.name}] ${e}`);
       }
       pruneEvents(db);
     }
 
+    // Fällige Automationen starten neue Studio-Aufträge
+    runDueAutomations(db);
     const report = await engine.tick();
     const soon = report.nextDueAt && report.nextDueAt.getTime() - Date.now() < AWAKE_BEFORE_MS;
     awake.set(Boolean(soon) || studio.active > 0);

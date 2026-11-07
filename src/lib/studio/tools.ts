@@ -5,9 +5,10 @@ import { listAccounts, PLATFORM_LABEL } from "../accounts";
 import { importBacklog } from "../backlog";
 import type { DB } from "../db/client";
 import { contents, PLATFORMS, type Platform, type Project } from "../db/schema";
-import { contentUsage, createPost, takenTimes } from "../posts";
+import { describePlan, planIntoNextSlot } from "../autoplan";
+import { contentUsage, takenTimes } from "../posts";
 import { getSettings } from "../settings";
-import { listSlots, nextFreeSlot, slotOccurrences } from "../slots";
+import { listSlots, slotOccurrences } from "../slots";
 import { formatDateTime } from "../time";
 
 /**
@@ -74,19 +75,15 @@ export async function proposeTool(
   if (!content) throw new Error(`Kein Short „${input.slug}“ im Backlog. Liegt video.mp4 im Ordner backlog/${input.slug}/?`);
 
   const wanted = (input.plattformen ?? []).map((p) => p.toLowerCase()).filter((p): p is Platform => (PLATFORMS as readonly string[]).includes(p));
-  const accs = listAccounts(db, { projectId: project.id }).filter((a) => a.status === "active" && (!wanted.length || wanted.includes(a.platform)));
-  if (!accs.length) throw new Error("Kein passendes, verbundenes Konto in diesem Projekt.");
-
-  const tz = getSettings(db).timezone;
-  let at: Date;
-  if (!input.zeit || input.zeit === "naechster_slot") {
-    const slot = nextFreeSlot(listSlots(db, project.id), takenTimes(db, new Date(), project.id), new Date(), tz);
-    if (!slot) throw new Error("Kein freier Slot – gib eine Zeit an (ISO 8601) oder lege Posting-Zeiten an.");
-    at = slot;
-  } else {
+  let at: Date | undefined;
+  if (input.zeit && input.zeit !== "naechster_slot") {
     at = new Date(input.zeit);
     if (Number.isNaN(at.getTime())) throw new Error(`Ungültige Zeit: ${input.zeit} (erwartet ISO 8601, z. B. 2026-11-10T09:00:00+01:00)`);
   }
-  createPost(db, { contentId: content.id, scheduledAt: at, accountIds: accs.map((a) => a.id), approve: false, createdBy: "agent" });
-  return `„${content.title}“ ist zur Freigabe eingeplant für ${formatDateTime(at, tz)} auf ${accs.map((a) => PLATFORM_LABEL[a.platform]).join(", ")}. Veröffentlicht wird erst nach Freigabe in der App.`;
+  const r = planIntoNextSlot(db, project, content.id, { createdBy: "agent", platforms: wanted, at });
+  if (!r.ok) {
+    throw new Error(r.reason === "keine freie Posting-Zeit" ? "Kein freier Slot – gib eine Zeit an (ISO 8601) oder lege Posting-Zeiten an." : `Nicht möglich: ${r.reason}.`);
+  }
+  const tz = getSettings(db).timezone;
+  return `„${content.title}“ ist zur Freigabe eingeplant für ${describePlan(r, tz)}. Veröffentlicht wird erst nach Freigabe in der App.`;
 }

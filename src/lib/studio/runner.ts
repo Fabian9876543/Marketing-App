@@ -2,10 +2,11 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import { describePlan, planIntoNextSlot } from "../autoplan";
 import { importBacklog } from "../backlog";
 import type { DB } from "../db/client";
-import { contents, studioRuns, studioSessions, type Project, type StudioMessage } from "../db/schema";
+import { automations, contents, studioRuns, studioSessions, type Project, type StudioMessage } from "../db/schema";
 import { dataDir, ensureDir } from "../env";
 import { getProject } from "../projects";
 import { getSettings } from "../settings";
@@ -285,6 +286,27 @@ export async function executeRun(db: DB, runId: number, opts: RunOptions = {}): 
     finish({ ...base, state: "error", error });
   } else {
     finish({ ...base, state: "done", error: null });
+    if (session.automationId && newShorts.length) autoScheduleNewShorts(db, project, session.automationId, newShorts, say);
+  }
+}
+
+/** Nach einem Automations-Lauf: neue Shorts in freie Slots legen – zur Freigabe. */
+function autoScheduleNewShorts(db: DB, project: Project, automationId: number, slugs: string[], say: (m: ParsedMessage) => void): void {
+  const automation = db.select().from(automations).where(eq(automations.id, automationId)).get();
+  if (!automation?.autoSchedule) return;
+  const tz = getSettings(db).timezone;
+  for (const slug of slugs) {
+    const content = db
+      .select()
+      .from(contents)
+      .where(and(eq(contents.projectId, project.id), eq(contents.slug, slug)))
+      .get();
+    if (!content) continue;
+    const r = planIntoNextSlot(db, project, content.id, { createdBy: "auto" });
+    say({
+      kind: "info",
+      text: r.ok ? `Zur Freigabe eingeplant: ${slug} → ${describePlan(r, tz)}` : `${slug} nicht eingeplant: ${describePlan(r, tz)}`,
+    });
   }
 }
 

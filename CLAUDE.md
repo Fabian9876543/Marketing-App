@@ -24,6 +24,9 @@ Der Nutzer spricht Deutsch. Oberfläche, Fehlermeldungen und Doku sind auf Deuts
   `StudioQueue`), `workspace.ts` legt `studio/` (Vorlage aus `vorlagen/studio/`), `CLAUDE.md` und `.claude/settings.json` an,
   `tools.ts` + `mcp/studio-server.ts` sind die MCP-Werkzeuge. Neue Claude-Optionen nur nutzen, wenn `claude --help` sie kennt (`claudeInfo`).
   Tests nutzen `tests/fixtures/fake-claude.mjs` (CLAUDE_BIN). Agent-Posts haben `createdBy = agent` und `state = review`.
+- Automation (Phase 4): `src/lib/automation.ts` (Rezepte, Zeitplan, `runDueAutomations` im Worker; jeder Lauf ist ein frischer
+  Studio-Chat mit `automationId`) und `src/lib/autoplan.ts` (`planIntoNextSlot`, `autoFillProject`). Automatisch eingeplante
+  Posts haben `createdBy = auto` und `state = review` – nie automatisch freigeben.
 - Seiten, die die DB lesen, rufen zuerst `await connection()` auf (sonst prerendert Next sie zur Build-Zeit).
 - Server-Aktionen in `src/app/actions.ts` geben Rückmeldung per Redirect mit `?ok=` oder `?fehler=`.
 - Zeiten werden in UTC gespeichert und in der Zeitzone aus den Einstellungen angezeigt (`src/lib/time.ts`, Luxon).

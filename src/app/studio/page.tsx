@@ -13,6 +13,7 @@ import { SubmitButton } from "@/components/client";
 import { StudioChat } from "@/components/StudioChat";
 import { Badge, ChooseProject, Flash, NoProject, PageHeader, flashFrom } from "@/components/ui";
 import { getScope } from "@/lib/active-project";
+import { listAutomations } from "@/lib/automation";
 import { getDb } from "@/lib/db/client";
 import type { Project, StudioRun } from "@/lib/db/schema";
 import { workerAlive } from "@/lib/settings";
@@ -44,6 +45,7 @@ export default async function StudioPage({ searchParams }: { searchParams: SP })
   const status = studioStatus(project);
   const info = await claudeInfo();
   const alive = workerAlive(db);
+  const automationCount = listAutomations(db, project.id).length;
 
   return (
     <>
@@ -51,9 +53,14 @@ export default async function StudioPage({ searchParams }: { searchParams: SP })
         title={`Studio · ${project.name}`}
         subtitle="Claude Code baut Shorts aus Briefing und Referenzen. Nichts geht online, bevor du es freigibst."
         actions={
-          <Link href="/studio?neu" className="btn btn-primary">
-            Neuer Auftrag
-          </Link>
+          <>
+            <Link href="/studio/automationen" className="btn">
+              Automationen{automationCount ? ` (${automationCount})` : ""}
+            </Link>
+            <Link href="/studio?neu" className="btn btn-primary">
+              Neuer Auftrag
+            </Link>
+          </>
         }
       />
       <Flash {...await flashFrom(searchParams)} />
@@ -73,6 +80,7 @@ export default async function StudioPage({ searchParams }: { searchParams: SP })
                   <span className="line-clamp-2">{s.title}</span>
                   <span className="mt-1 flex items-center gap-2 text-xs font-normal text-muted">
                     <RunBadge run={s.lastRun} />
+                    {s.automationId && <Badge>Automation</Badge>}
                     {relative(s.updatedAt)}
                   </span>
                 </Link>
@@ -200,10 +208,16 @@ function ChatView({ session }: { session: SessionSummary }) {
   const last = sessionRuns(db, session.id).at(-1) ?? null;
   const run = last && { id: last.id, state: last.state, error: last.error, newShorts: last.newShorts, cancelRequested: last.cancelRequested };
   const busy = run?.state === "queued" || run?.state === "running";
+  const canBecomeRecipe = !fresh.automationId && sessionRuns(db, session.id).some((r) => r.state === "done");
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold">{fresh.title}</h2>
+        {!busy && canBecomeRecipe && (
+          <Link href={`/studio/automationen/neu?chat=${session.id}`} className="btn ml-auto py-1 text-xs">
+            Als Automation speichern
+          </Link>
+        )}
         {!busy && (
           <form action={deleteStudioSessionAction}>
             <input type="hidden" name="sessionId" value={session.id} />

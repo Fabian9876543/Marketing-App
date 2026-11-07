@@ -185,6 +185,21 @@ Im **Studio** gibst du Claude Code Aufträge wie „Mach einen neuen Short“ od
 - Willst du `CLAUDE.md` selbst pflegen, entferne die erste Zeile (Marker). Dann überschreibt das Studio die Datei nicht mehr.
 - Die Video-Vorlage nutzt Remotion. Für Einzelpersonen und Firmen bis 3 Mitarbeitende ist Remotion kostenlos, größere Firmen brauchen eine Lizenz (remotion.pro).
 
+## Automationen: jeden Tag neue Shorts
+
+Hat Claude im Studio einen Short gebaut, der dir gefällt, klickst du im Chat auf **„Als Automation speichern“**. Daraus wird ein **Rezept**: dein Auftrag, deine Rückmeldungen aus dem Chat und der gelungene Short als Vorbild. Du kannst das Rezept vor dem Speichern anpassen.
+
+Pro Automation stellst du ein:
+- **Wochentage und Uhrzeit**, z. B. Mo–Fr um 06:00
+- **Shorts pro Lauf** (1–5)
+- **Neue Shorts danach in freie Posting-Zeiten einplanen**: Sie landen unter **Warteschlange → Zur Freigabe**. Online gehen sie erst, wenn du freigibst, z. B. morgens beim Kaffee.
+
+Jeder Lauf startet frisch nach demselben Rezept. Claude prüft dabei das Backlog und wählt jedes Mal ein neues Thema. Unter **Studio → Automationen** siehst du die nächsten Läufe und kannst eine Automation pausieren, sofort ausführen, bearbeiten oder löschen. Jeder Lauf erscheint als eigener Chat im Studio.
+
+Ist dein Mac zur geplanten Zeit aus oder im Ruhezustand, holt der Worker den Lauf innerhalb von 6 Stunden nach, sonst wird er übersprungen. Für zuverlässige Läufe den Mac nicht zuklappen oder einen eigenen Mac mini bzw. Server nutzen.
+
+**Freie Zeiten automatisch füllen** (Projekt → Posting-Zeiten): Freie Posting-Zeiten der nächsten Tage (einstellbar, Standard 3) bekommen Shorts aus dem Backlog, die noch nie geplant waren, die ältesten zuerst. Auch diese landen nur **zur Freigabe**.
+
 ## 8. Dauerhaft im Hintergrund laufen lassen
 
 ```bash

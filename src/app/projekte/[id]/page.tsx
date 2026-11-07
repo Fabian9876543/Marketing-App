@@ -13,6 +13,7 @@ import {
   removeSlotAction,
   switchProjectAction,
   toggleSlotAction,
+  updateAutoFillAction,
   updateBriefAction,
   updateProjectAction,
   updateReferenceAction,
@@ -363,6 +364,28 @@ function SlotsTab({ project, slots, back }: { project: Project; slots: ReturnTyp
             </label>
           ))}
         </fieldset>
+      </form>
+
+      <form action={updateAutoFillAction} className="mt-6 space-y-3 border-t border-line pt-4">
+        <input type="hidden" name="projectId" value={project.id} />
+        <input type="hidden" name="back" value={back} />
+        <h3 className="h2">Freie Zeiten automatisch füllen</h3>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="autoFill" defaultChecked={project.autoFill} className="mt-1" />
+          <span>
+            Freie Posting-Zeiten mit Shorts aus dem Backlog füllen, die noch nie geplant waren (älteste zuerst)
+            <span className="block text-xs text-muted">Sie landen zur Freigabe in der Warteschlange – nichts geht ohne dich online.</span>
+          </span>
+        </label>
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <label className="label" htmlFor="autoFillDays">
+              So viele Tage im Voraus
+            </label>
+            <input id="autoFillDays" type="number" min={1} max={14} name="autoFillDays" defaultValue={project.autoFillDays} className="input w-24" />
+          </div>
+          <SubmitButton>Speichern</SubmitButton>
+        </div>
       </form>
     </section>
   );
