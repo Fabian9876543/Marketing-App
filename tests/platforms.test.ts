@@ -18,7 +18,7 @@ import { tiktokOAuth } from "@/lib/publishing/tiktok/oauth";
 import { createTikTokPublisher } from "@/lib/publishing/tiktok/publisher";
 import type { PublishInput } from "@/lib/publishing/types";
 import { getSettings, updateSettings, type AppSettings } from "@/lib/settings";
-import { makeShort, tempDir, testDb } from "./helpers";
+import { makeShort, tempDir, testDb, testProject } from "./helpers";
 
 const MiB = 1024 * 1024;
 
@@ -174,14 +174,15 @@ beforeEach(() => fake.reset());
 async function setup(platform: Platform, opts: { bytes?: number; meta?: object; externalId?: string; settings?: Partial<AppSettings> } = {}) {
   const db = testDb();
   if (opts.settings) updateSettings(db, opts.settings);
-  const dir = tempDir();
+  const project = testProject(db);
+    const dir = project.folder;
   const folder = makeShort(dir, "demo", {
     bytes: opts.bytes ?? 2048,
     meta: opts.meta ?? { title: "Anruf um 22 Uhr", description: "Die Praxis ist zu (aber nicht der Assistent).", hashtags: ["KI", "Praxis"], aiGenerated: true },
   });
-  await importBacklog(db, dir);
+  await importBacklog(db, project);
   const content = db.select().from(contents).get()!;
-  const account = await upsertAccount(db, { platform, externalId: opts.externalId ?? "ig1", name: "Fokuspilot" });
+  const account = await upsertAccount(db, { projectId: project.id, platform, externalId: opts.externalId ?? "ig1", name: "Fokuspilot" });
   let session: UploadSession | null = null;
   const input = (): PublishInput => ({
     target: { id: 1, uploadSession: session } as PublishInput["target"],

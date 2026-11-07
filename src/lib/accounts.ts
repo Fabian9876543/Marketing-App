@@ -20,9 +20,17 @@ export const PLATFORM_LABEL: Record<Platform, string> = {
   simulator: "Test-Kanal",
 };
 
-export function listAccounts(db: DB, opts: { includeDisabled?: boolean } = {}): Account[] {
-  const q = db.select().from(accounts);
-  return (opts.includeDisabled ? q : q.where(ne(accounts.status, "disabled"))).orderBy(asc(accounts.id)).all();
+/** Konten eines Projekts (oder aller Projekte, wenn projectId fehlt). */
+export function listAccounts(db: DB, opts: { projectId?: number; includeDisabled?: boolean } = {}): Account[] {
+  const conds = [];
+  if (opts.projectId) conds.push(eq(accounts.projectId, opts.projectId));
+  if (!opts.includeDisabled) conds.push(ne(accounts.status, "disabled"));
+  return db
+    .select()
+    .from(accounts)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(asc(accounts.projectId), asc(accounts.id))
+    .all();
 }
 
 export function getAccount(db: DB, id: number): Account | undefined {
@@ -33,6 +41,7 @@ export function getAccount(db: DB, id: number): Account | undefined {
 export async function upsertAccount(
   db: DB,
   input: {
+    projectId: number;
     platform: Platform;
     externalId: string;
     name: string;
@@ -43,6 +52,7 @@ export async function upsertAccount(
 ): Promise<Account> {
   const tokens = input.tokens ? await sealTokens(input.tokens) : null;
   const values = {
+    projectId: input.projectId,
     platform: input.platform,
     externalId: input.externalId,
     name: input.name,
@@ -55,7 +65,7 @@ export async function upsertAccount(
   return db
     .insert(accounts)
     .values(values)
-    .onConflictDoUpdate({ target: [accounts.platform, accounts.externalId], set: values })
+    .onConflictDoUpdate({ target: [accounts.projectId, accounts.platform, accounts.externalId], set: values })
     .returning()
     .get();
 }

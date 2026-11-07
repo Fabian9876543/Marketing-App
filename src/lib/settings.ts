@@ -2,13 +2,16 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import type { DB } from "./db/client";
 import { settings } from "./db/schema";
-import { defaultContentDir } from "./env";
+import { defaultProjectsDir } from "./env";
 
 export const appSettingsSchema = z.object({
   timezone: z.string().default("Europe/Berlin"),
   /** Wie lange nach der geplanten Zeit ein Post noch nachgeholt wird (z. B. nach dem Ruhezustand). */
   missedToleranceMinutes: z.number().int().min(0).max(24 * 60).default(120),
-  contentDir: z.string().default(defaultContentDir()),
+  /** Hier entstehen neue Projektordner. */
+  projectsDir: z.string().default(defaultProjectsDir()),
+  /** Veraltet (vor den Projekten): Content-Ordner des ersten Projekts. Nur noch für die Übernahme gelesen. */
+  contentDir: z.string().optional(),
   youtube: z
     .object({
       privacy: z.enum(["public", "unlisted", "private"]).default("public"),

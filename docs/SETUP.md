@@ -23,34 +23,44 @@ pnpm install
 pnpm local:setup
 ```
 
-`local:setup` prüft die Werkzeuge, legt die `.env` an, erstellt die Datenbank und den Ordner `~/Fokuspilot-Social/backlog`.
+`local:setup` prüft die Werkzeuge, legt die `.env` an und erstellt die Datenbank sowie den Ordner `~/Marketing-Studio`, in dem neue Projekte ihre Unterordner bekommen.
 Beim ersten Start fragt macOS eventuell, ob „node“ auf die Schlüsselbundverwaltung zugreifen darf. Erlaube das mit **„Immer erlauben“**: Dort liegt der Schlüssel, mit dem deine Zugangsdaten verschlüsselt werden.
 
-## 3. Ausprobieren ohne echte Konten
+## 3. Erstes Projekt anlegen und ausprobieren
 
 ```bash
 pnpm dev
 ```
 
-Öffne http://localhost:4321 und gehe so vor:
+Öffne http://localhost:4321. Alles im Marketing Studio gehört zu einem **Projekt**, also einer App, einer Marke oder einem Kunden. Jedes Projekt hat:
+- einen eigenen Ordner, Standard `~/Marketing-Studio/<projekt>/`, mit `backlog/` für fertige Shorts, `referenzen/` für Logo, Screenshots & Co. und `PROJEKT.md` mit dem Briefing
+- eigene Social-Media-Konten, eigene Posting-Zeiten und eigene Referenzen
 
-1. **Konten** → „Test-Kanal anlegen“
-2. **Einstellungen** → Posting-Zeiten anlegen, z. B. 09:00 und 19:00
-3. Ein Video in `~/Fokuspilot-Social/backlog/<name>/video.mp4` legen oder unter **Backlog** hochladen
-4. **Backlog** → „Einplanen“ mit einer Zeit in 1–2 Minuten
+So probierst du es ohne echte Konten aus:
+1. **Erstes Projekt anlegen**: Name, ein Satz zur Beschreibung, optional Website und Standard-Hashtags.
+2. **Projekt → Briefing**: Zielgruppe, Tonalität, Kernbotschaften.
+3. **Referenzen**: Logo, Screenshots, Bildschirmaufnahmen, Musik, Beispiel-Links und Notizen ablegen.
+4. **Projekt → Posting-Zeiten**: z. B. 09:00 und 19:00.
+5. **Konten** → „Test-Kanal anlegen“.
+6. Ein Video in `~/Marketing-Studio/<projekt>/backlog/<name>/video.mp4` legen oder unter **Backlog** hochladen.
+7. **Backlog** → „Einplanen“ mit einer Zeit in 1–2 Minuten.
 
 Kurz darauf steht der Post unter **Warteschlange → Veröffentlicht**. Die Kopie liegt im Datenordner unter `test-kanal/`.
+
+Weitere Projekte legst du unter **Alle Projekte → Neues Projekt** an. Oben in der Seitenleiste wechselst du das aktive Projekt. Mit **„Alle Projekte“** zeigen Übersicht, Kalender und Warteschlange alles auf einmal, jeweils mit Farbpunkt des Projekts.
+
+**Konten gehören immer zu einem Projekt.** Verbinde sie deshalb, während das richtige Projekt oben ausgewählt ist. Die Entwickler-Apps aus den folgenden Abschnitten richtest du dagegen nur **einmal** ein; sie gelten für alle Projekte.
 
 ## 4. YouTube verbinden
 
 ### 4.1 Google-Cloud-Projekt anlegen
-1. https://console.cloud.google.com öffnen → oben „Projekt auswählen“ → **Neues Projekt**, z. B. „Fokuspilot Studio“.
+1. https://console.cloud.google.com öffnen → oben „Projekt auswählen“ → **Neues Projekt**, z. B. „Marketing Studio“.
 2. **APIs & Dienste → Bibliothek** → „YouTube Data API v3“ → **Aktivieren**.
 
 ### 4.2 OAuth-Zustimmungsbildschirm (Google Auth Platform)
-1. **Branding**: App-Name „Fokuspilot Studio“, deine E-Mail als Support-Adresse.
+1. **Branding**: App-Name „Marketing Studio“, deine E-Mail als Support-Adresse.
 2. **Zielgruppe**:
-   - Hast du **Google Workspace** (z. B. @fokuspilot.de) und gehört der YouTube-Kanal zu diesem Konto? Dann wähle **Intern**. Damit entfällt die Abmeldung nach 7 Tagen.
+   - Hast du **Google Workspace** und gehören die YouTube-Kanäle zu Konten dieser Organisation? Dann wähle **Intern**. Damit entfällt die Abmeldung nach 7 Tagen.
    - Sonst wähle **Extern**, lass die App im **Testmodus** und trage unter **Testnutzer** das Google-Konto ein, dem der Kanal gehört.
      Im Testmodus läuft die Anmeldung nach 7 Tagen ab. Das Tool zeigt dann „Neu verbinden“ an.
 3. **Datenzugriff**: Berechtigungen `.../auth/youtube.upload` und `.../auth/youtube.readonly` hinzufügen.
@@ -121,7 +131,7 @@ Bei einem Wechsel von „Entwurf“ auf „direkt“ musst du TikTok neu verbind
 
 ## 7. LinkedIn verbinden
 
-1. https://www.linkedin.com/developers/apps → **App erstellen**. LinkedIn verlangt dafür eine Unternehmensseite; nimm die von Fokuspilot.
+1. https://www.linkedin.com/developers/apps → **App erstellen**. LinkedIn verlangt dafür eine Unternehmensseite; nimm deine eigene oder die eines Projekts.
 2. Reiter **Produkte**: „**Share on LinkedIn**“ und „**Sign In with LinkedIn using OpenID Connect**“ hinzufügen (beide sofort verfügbar).
 3. Reiter **Auth** → **Authorized redirect URLs**: `http://localhost:4321/api/oauth/linkedin/callback`
 4. Client ID und Client Secret in die `.env`:
@@ -138,13 +148,13 @@ Hinweise:
 
 ## Wenn eine Plattform `localhost` als Weiterleitung ablehnt
 
-Manche Entwickler-Konsolen ändern ihre Regeln. Lehnt eine Plattform `http://localhost:4321/…` ab, gibt es einen Ausweg, sobald die Fokuspilot-Website online ist:
-1. Lege auf der Website eine kleine Seite an, z. B. `https://fokuspilot.de/oauth/tiktok`. Sie leitet nur auf deinen Mac weiter:
+Manche Entwickler-Konsolen ändern ihre Regeln. Lehnt eine Plattform `http://localhost:4321/…` ab, gibt es einen Ausweg über eine eigene Website:
+1. Lege auf einer deiner Websites eine kleine Seite an, z. B. `https://deine-website.de/oauth/tiktok`. Sie leitet nur auf deinen Mac weiter:
    ```html
    <script>location.replace("http://localhost:4321/api/oauth/tiktok/callback" + location.search)</script>
    ```
 2. Trage diese HTTPS-Adresse in der Entwickler-Konsole als Weiterleitung ein.
-3. Ergänze in der `.env`: `TIKTOK_REDIRECT_URI=https://fokuspilot.de/oauth/tiktok` (entsprechend `INSTAGRAM_…`, `LINKEDIN_…`, `YOUTUBE_REDIRECT_URI`).
+3. Ergänze in der `.env`: `TIKTOK_REDIRECT_URI=https://deine-website.de/oauth/tiktok` (entsprechend `INSTAGRAM_…`, `LINKEDIN_…`, `YOUTUBE_REDIRECT_URI`).
 
 ## 8. Dauerhaft im Hintergrund laufen lassen
 
@@ -155,7 +165,7 @@ pnpm local:uninstall   # wieder entfernen
 ```
 
 Beide Dienste starten beim Anmelden am Mac und nach einem Absturz neu.
-Die Logs liegen unter `~/Library/Application Support/FokuspilotStudio/logs/`.
+Die Logs liegen unter `~/Library/Application Support/MarketingStudio/logs/`.
 
 **Rechner aus oder im Ruhezustand?**
 - Verpasste Posts holt der Worker nach, solange die Verspätung innerhalb der Toleranz liegt (Standard: 2 Stunden). Danach landen sie unter „Fehler“, und du planst sie neu.
@@ -171,7 +181,7 @@ pnpm local:install   # nur wenn die Hintergrunddienste installiert sind
 
 ## Backlog-Format
 
-Ein Ordner pro Short in `~/Fokuspilot-Social/backlog/`:
+Ein Ordner pro Short im Backlog-Ordner des Projekts, z. B. `~/Marketing-Studio/<projekt>/backlog/`:
 
 ```
 2026-11-10-anruf-um-22-uhr/
@@ -197,9 +207,18 @@ Ein Ordner pro Short in `~/Fokuspilot-Social/backlog/`:
 }
 ```
 
+Fehlt `hashtags`, gelten die Standard-Hashtags des Projekts.
+
 `aiGenerated: true` kennzeichnet das Video als KI-Inhalt (synthetische Stimme oder realistische KI-Bilder):
 - **YouTube:** über das offizielle Feld der API
 - **TikTok-Direktposts:** über `is_aigc`
 - **Instagram, LinkedIn und TikTok-Entwürfe:** mit dem KI-Hinweis aus den Einstellungen im Text
 
 Fehlen eigene Texte für eine Plattform, baut das Tool sie aus `description` und `hashtags`. Dabei hält es die Längen-Limits ein: Instagram und TikTok 2.200 Zeichen, LinkedIn 3.000 Zeichen, Instagram höchstens 30 Hashtags.
+
+## Von „Fokuspilot Studio“ umsteigen
+
+Hast du die frühere Version schon benutzt, wird beim ersten Start alles übernommen:
+- Konten, Shorts, Posting-Zeiten und Posts landen im Projekt **„Fokuspilot“**. Dessen Ordner ist dein bisheriger Content-Ordner (Standard `~/Fokuspilot-Social`).
+- Datenbank und Schlüssel bleiben gültig: Der alte Datenordner wird weiterverwendet, der Keychain-Schlüssel übernommen.
+- Die alten Hintergrunddienste entfernt `pnpm local:install` automatisch und installiert die neuen.

@@ -3,7 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { dataDir, ensureDir } from "../env";
 
-const SERVICE = "Fokuspilot Studio";
+const SERVICE = "Marketing Studio";
+/** Frühere Installationen speicherten den Schlüssel unter diesem Namen. */
+const LEGACY_SERVICE = "Fokuspilot Studio";
 const ACCOUNT = "token-encryption-key";
 
 export type KeySource = "keychain" | "file";
@@ -22,13 +24,20 @@ export async function getEncryptionKey(): Promise<{ key: Buffer; source: KeySour
 }
 
 async function fromKeyring(): Promise<{ key: Buffer; source: KeySource } | null> {
-  if (process.env.FPS_KEYSTORE === "file") return null;
+  if ((process.env.STUDIO_KEYSTORE || process.env.FPS_KEYSTORE) === "file") return null;
   try {
     const { Entry } = await import("@napi-rs/keyring");
     const entry = new Entry(SERVICE, ACCOUNT);
     let value = entry.getPassword();
     if (!value) {
-      value = crypto.randomBytes(32).toString("base64");
+      // Schlüssel einer früheren Installation übernehmen, sonst wären gespeicherte Zugangsdaten unlesbar.
+      let legacy: string | null = null;
+      try {
+        legacy = new Entry(LEGACY_SERVICE, ACCOUNT).getPassword();
+      } catch {
+        legacy = null;
+      }
+      value = legacy || crypto.randomBytes(32).toString("base64");
       entry.setPassword(value);
     }
     const key = Buffer.from(value, "base64");

@@ -1,8 +1,8 @@
 {
-  "name": "fokuspilot-studio",
+  "name": "marketing-studio",
   "version": "0.1.0",
   "private": true,
-  "description": "Lokales Marketing-Tool für Fokuspilot: Shorts planen, freigeben und veröffentlichen.",
+  "description": "Lokales Marketing-Tool für mehrere Projekte: Shorts planen, freigeben und auf YouTube, Instagram, TikTok und LinkedIn veröffentlichen.",
   "type": "module",
   "packageManager": "pnpm@10.28.0",
   "engines": {

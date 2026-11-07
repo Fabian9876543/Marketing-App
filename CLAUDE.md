@@ -1,6 +1,7 @@
-# Fokuspilot Studio – Hinweise für Claude
+# Marketing Studio – Hinweise für Claude
 
-Lokales Marketing-Tool (läuft auf dem Mac des Nutzers) für Fokuspilot, einen KI-Telefonassistenten.
+Lokales Marketing-Tool (läuft auf dem Mac des Nutzers) für mehrere Projekte (Apps, Marken, Kunden).
+Erstes Projekt des Nutzers ist Fokuspilot, ein KI-Telefonassistent; das Tool selbst ist projektneutral.
 Gesamtplan und Phasen: `docs/PLAN.md`. Einrichtung: `docs/SETUP.md`.
 Der Nutzer spricht Deutsch. Oberfläche, Fehlermeldungen und Doku sind auf Deutsch.
 
@@ -11,6 +12,14 @@ Der Nutzer spricht Deutsch. Oberfläche, Fehlermeldungen und Doku sind auf Deuts
 - Tests: Vitest in `tests/`; YouTube, Meta, TikTok und LinkedIn gegen nachgebaute HTTP-Server (Basis-URLs per Env überschreibbar, siehe `src/lib/env.ts`). Vor jedem Commit: `pnpm typecheck && pnpm test`.
 
 ## Regeln
+- Alles hängt an `projects`: Konten, Shorts (contents), Posting-Zeiten (slots) und Referenzen haben eine `projectId`.
+  Posts gehören über ihren Short zu einem Projekt. Konten eines Posts müssen zum Projekt des Shorts passen.
+- Das aktive Projekt steht im Cookie `studio_projekt` (`src/lib/active-project.ts`, „alle“ = alle Projekte).
+  Seiten, die ein einzelnes Projekt brauchen (Backlog, Konten hinzufügen), zeigen bei „alle“ eine Projektauswahl.
+- Jeder Projektordner hat `backlog/`, `referenzen/<kategorie>/` und `PROJEKT.md`. PROJEKT.md wird bei jeder Änderung
+  an Briefing oder Referenzen neu geschrieben (`writeBriefFile`) und ist die Grundlage für Phase 2.
+- Dateien werden nur per ID ausgeliefert (`/api/media/[id]`, `/api/referenzen/[id]`), nie per Pfad; Pfade bleiben im Projektordner.
+- Migration 0002 hat bestehende Daten in Projekt 1 „Fokuspilot“ übernommen; `adoptLegacyProject` setzt dessen Ordner.
 - Seiten, die die DB lesen, rufen zuerst `await connection()` auf (sonst prerendert Next sie zur Build-Zeit).
 - Server-Aktionen in `src/app/actions.ts` geben Rückmeldung per Redirect mit `?ok=` oder `?fehler=`.
 - Zeiten werden in UTC gespeichert und in der Zeitzone aus den Einstellungen angezeigt (`src/lib/time.ts`, Luxon).

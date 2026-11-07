@@ -1,7 +1,8 @@
 import { DateTime } from "luxon";
 import Link from "next/link";
 import { connection } from "next/server";
-import { Flash, PageHeader, PlatformChip, flashFrom } from "@/components/ui";
+import { Flash, NoProject, PageHeader, PlatformChip, flashFrom } from "@/components/ui";
+import { getScope, scopeFilter } from "@/lib/active-project";
 import { getDb } from "@/lib/db/client";
 import { listPostViews, type DisplayState, type PostView } from "@/lib/posts";
 import { getSettings } from "@/lib/settings";
@@ -25,6 +26,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: SP 
   const sp = await searchParams;
   const db = getDb();
   const tz = getSettings(db).timezone;
+  const scope = await getScope(db);
+  if (!scope.projects.length) return <NoProject />;
   const view = sp.ansicht === "monat" ? "monat" : "woche";
   const today = DateTime.now().setZone(tz).startOf("day");
   const parsed = typeof sp.datum === "string" ? DateTime.fromISO(sp.datum, { zone: tz }) : null;
@@ -33,8 +36,9 @@ export default async function CalendarPage({ searchParams }: { searchParams: SP 
   const start = view === "woche" ? anchor.startOf("week") : anchor.startOf("month").startOf("week");
   const days = view === "woche" ? 7 : 42;
   const end = start.plus({ days });
-  const posts = listPostViews(db, { from: start.toJSDate(), to: end.toJSDate() });
-  const freeSlots = view === "woche" ? slotOccurrences(listSlots(db), new Date(), end.toJSDate(), tz) : [];
+  const posts = listPostViews(db, { from: start.toJSDate(), to: end.toJSDate(), projectId: scopeFilter(scope) });
+  // Freie Slots nur, wenn ein einzelnes Projekt gewählt ist (jedes Projekt hat eigene Zeiten).
+  const freeSlots = view === "woche" && scope.active ? slotOccurrences(listSlots(db, scope.active.id), new Date(), end.toJSDate(), tz) : [];
 
   const step = view === "woche" ? { weeks: 1 } : { months: 1 };
   const href = (d: DateTime, v = view) => `/kalender?ansicht=${v}&datum=${d.toISODate()}`;
@@ -52,7 +56,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: SP 
   return (
     <>
       <PageHeader
-        title="Kalender"
+        title={`Kalender · ${scope.all ? "Alle Projekte" : scope.active!.name}`}
         subtitle={title}
         actions={
           <>
@@ -96,7 +100,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: SP 
                 </h2>
                 <ul className="space-y-1.5 [&:not(:empty)]:mt-2 md:[&:not(:empty)]:mt-0">
                   {[
-                    ...items.map((p) => ({ at: p.scheduledAt.getTime(), node: <PostChip key={`p${p.id}`} post={p} tz={tz} /> })),
+                    ...items.map((p) => ({ at: p.scheduledAt.getTime(), node: <PostChip key={`p${p.id}`} post={p} tz={tz} showProject={scope.all} /> })),
                     ...free.map((d) => ({
                       at: d.toMillis(),
                       node: (
@@ -135,8 +139,11 @@ export default async function CalendarPage({ searchParams }: { searchParams: SP 
                   <div className={`mb-1 ${day.hasSame(today, "day") ? "font-bold text-accent" : ""}`}>{day.day}</div>
                   <ul className="space-y-0.5">
                     {items.slice(0, 3).map((p) => (
-                      <li key={p.id} className={`truncate border-l-2 pl-1 ${BORDER[p.display]}`}>
-                        {DateTime.fromJSDate(p.scheduledAt, { zone: tz }).toFormat("HH:mm")} {p.content.title}
+                      <li key={p.id} className={`flex items-center gap-1 truncate border-l-2 pl-1 ${BORDER[p.display]}`}>
+                        {scope.all && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: p.project.color }} />}
+                        <span className="truncate">
+                          {DateTime.fromJSDate(p.scheduledAt, { zone: tz }).toFormat("HH:mm")} {p.content.title}
+                        </span>
                       </li>
                     ))}
                     {items.length > 3 && <li className="text-muted">+{items.length - 3} weitere</li>}
@@ -157,7 +164,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: SP 
   );
 }
 
-function PostChip({ post, tz }: { post: PostView; tz: string }) {
+function PostChip({ post, tz, showProject }: { post: PostView; tz: string; showProject: boolean }) {
   return (
     <li>
       <Link
@@ -173,6 +180,12 @@ function PostChip({ post, tz }: { post: PostView; tz: string }) {
           </span>
         </div>
         <div className="mt-0.5 line-clamp-2 leading-snug">{post.content.title}</div>
+        {showProject && (
+          <div className="mt-1 flex items-center gap-1 text-[11px] text-muted">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: post.project.color }} />
+            {post.project.name}
+          </div>
+        )}
       </Link>
     </li>
   );

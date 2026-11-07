@@ -1,10 +1,11 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { connection } from "next/server";
-import { importBacklogAction, openContentFolderAction, schedulePostAction } from "@/app/actions";
+import { importBacklogAction, openProjectFolderAction, schedulePostAction, switchProjectAction } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
-import { Badge, Empty, Flash, PageHeader, PlatformChip, VideoPreview, flashFrom } from "@/components/ui";
+import { Badge, ChooseProject, Empty, Flash, NoProject, PageHeader, PlatformChip, VideoPreview, flashFrom } from "@/components/ui";
 import { listAccounts } from "@/lib/accounts";
+import { getScope } from "@/lib/active-project";
 import { backlogDir } from "@/lib/backlog";
 import { getDb } from "@/lib/db/client";
 import { contents, type Account, type Content } from "@/lib/db/schema";
@@ -17,29 +18,48 @@ import { formatDateTime, toLocalInput } from "@/lib/time";
 export default async function BacklogPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await connection();
   const db = getDb();
+  const scope = await getScope(db);
+  if (!scope.projects.length) return <NoProject />;
+  if (!scope.active) {
+    return (
+      <>
+        <PageHeader title="Backlog" />
+        <ChooseProject projects={scope.projects} back="/backlog" action={switchProjectAction} what="Shorts" />
+      </>
+    );
+  }
+  const project = scope.active;
   const settings = getSettings(db);
-  const items = db.select().from(contents).orderBy(desc(contents.available), desc(contents.createdAt)).all();
-  const usage = contentUsage(db);
-  const accounts = listAccounts(db).filter((a) => a.status !== "disabled");
-  const nextSlot = nextFreeSlot(listSlots(db), takenTimes(db, new Date()), new Date(), settings.timezone);
+  const items = db
+    .select()
+    .from(contents)
+    .where(eq(contents.projectId, project.id))
+    .orderBy(desc(contents.available), desc(contents.createdAt))
+    .all();
+  const usage = contentUsage(db, project.id);
+  const accounts = listAccounts(db, { projectId: project.id });
+  const nextSlot = nextFreeSlot(listSlots(db, project.id), takenTimes(db, new Date(), project.id), new Date(), settings.timezone);
   const defaultTime = toLocalInput(nextSlot ?? new Date(Date.now() + 3600_000), settings.timezone);
 
   return (
     <>
       <PageHeader
-        title="Backlog"
+        title={`Backlog · ${project.name}`}
         subtitle={
           <>
-            Fertige Shorts aus <code className="rounded bg-surface-2 px-1 text-xs [overflow-wrap:anywhere]">{backlogDir(settings.contentDir)}</code> – ein Ordner pro Short.
+            Fertige Shorts aus <code className="rounded bg-surface-2 px-1 text-xs [overflow-wrap:anywhere]">{backlogDir(project.folder)}</code> – ein Ordner pro Short.
           </>
         }
         actions={
           <>
-            <form action={openContentFolderAction}>
+            <form action={openProjectFolderAction}>
+              <input type="hidden" name="projectId" value={project.id} />
+              <input type="hidden" name="sub" value="backlog" />
               <input type="hidden" name="back" value="/backlog" />
               <SubmitButton>Ordner öffnen</SubmitButton>
             </form>
             <form action={importBacklogAction}>
+              <input type="hidden" name="projectId" value={project.id} />
               <input type="hidden" name="back" value="/backlog" />
               <SubmitButton className="btn btn-primary" pendingText="Lese ein …">
                 Neu einlesen
@@ -53,6 +73,7 @@ export default async function BacklogPage({ searchParams }: { searchParams: Prom
       <details className="card mb-6 p-4">
         <summary className="cursor-pointer text-sm font-medium">Video hochladen</summary>
         <form action="/api/backlog/upload" method="post" encType="multipart/form-data" className="mt-4 grid gap-3 md:grid-cols-2">
+          <input type="hidden" name="projectId" value={project.id} />
           <div className="md:col-span-2">
             <label className="label" htmlFor="file">
               Videodatei (MP4/MOV, am besten 9:16)
@@ -63,13 +84,13 @@ export default async function BacklogPage({ searchParams }: { searchParams: Prom
             <label className="label" htmlFor="title">
               Titel
             </label>
-            <input id="title" name="title" required maxLength={100} className="input" placeholder="z. B. Anruf um 22 Uhr – wer geht ran?" />
+            <input id="title" name="title" required maxLength={100} className="input" placeholder="Worum geht es im Short?" />
           </div>
           <div>
             <label className="label" htmlFor="hashtags">
               Hashtags
             </label>
-            <input id="hashtags" name="hashtags" className="input" placeholder="#KI #Telefonassistent" />
+            <input id="hashtags" name="hashtags" className="input" placeholder={project.defaultHashtags.join(" ") || "#Marke #Thema"} />
           </div>
           <div className="md:col-span-2">
             <label className="label" htmlFor="description">
@@ -101,6 +122,7 @@ export default async function BacklogPage({ searchParams }: { searchParams: Prom
               accounts={accounts}
               defaultTime={defaultTime}
               nextSlotLabel={nextSlot ? formatDateTime(nextSlot, settings.timezone) : null}
+              projectName={project.name}
             />
           ))}
         </div>
@@ -115,7 +137,9 @@ function ContentCard({
   accounts,
   defaultTime,
   nextSlotLabel,
+  projectName,
 }: {
+  projectName: string;
   content: Content;
   usage?: { planned: number; published: number };
   accounts: Account[];
@@ -162,7 +186,7 @@ function ContentCard({
           {accounts.length === 0 ? (
             <p className="text-xs text-muted">
               <Link href="/konten" className="underline">
-                Verbinde zuerst ein Konto
+                Verbinde zuerst ein Konto für {projectName}
               </Link>
               , um einzuplanen.
             </p>
@@ -181,7 +205,7 @@ function ContentCard({
                 <legend className="label">Wann</legend>
                 <label className="flex items-center gap-2">
                   <input type="radio" name="mode" value="slot" defaultChecked={Boolean(nextSlotLabel)} disabled={!nextSlotLabel} />
-                  Nächster freier Slot {nextSlotLabel ? <span className="text-muted">({nextSlotLabel})</span> : <span className="text-muted">(keine Slots angelegt)</span>}
+                  Nächster freier Slot {nextSlotLabel ? <span className="text-muted">({nextSlotLabel})</span> : <span className="text-muted">(keine Posting-Zeiten im Projekt)</span>}
                 </label>
                 <label className="flex items-center gap-2">
                   <input type="radio" name="mode" value="time" defaultChecked={!nextSlotLabel} />

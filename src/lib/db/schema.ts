@@ -12,11 +12,73 @@ const updatedAt = () =>
     .default(nowMs)
     .$onUpdate(() => new Date());
 
+/** Ein Projekt = eine Marke/App/Kunde mit eigenem Ordner, eigenen Konten, Posting-Zeiten und Referenzen. */
+export const projects = sqliteTable("projects", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  website: text("website"),
+  /** Akzentfarbe für Kalender und Listen (#rrggbb) */
+  color: text("color").notNull().default("#3150c8"),
+  /** Projektordner mit backlog/ und referenzen/ (absoluter Pfad) */
+  folder: text("folder").notNull(),
+  /** Briefing für Texte und später für Claude Code (Zielgruppe, Tonalität, …) */
+  brief: text("brief", { mode: "json" }).$type<ProjectBrief>().notNull().default({}),
+  /** Werden genutzt, wenn ein Short keine eigenen Hashtags hat */
+  defaultHashtags: text("default_hashtags", { mode: "json" }).$type<string[]>().notNull().default([]),
+  archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export type ProjectBrief = {
+  /** Für wen ist das Projekt? */
+  audience?: string;
+  /** Wie soll es klingen? */
+  tone?: string;
+  /** Was soll hängen bleiben? */
+  messages?: string;
+  /** Was ist tabu, was muss immer rein? */
+  rules?: string;
+  /** Handlungsaufforderung am Ende, z. B. „Jetzt kostenlos testen auf …“ */
+  cta?: string;
+};
+
+export const REFERENCE_CATEGORIES = ["logo", "branding", "screenshot", "video", "audio", "dokument", "inspiration", "sonstiges"] as const;
+export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
+
+/** Referenzen eines Projekts: hochgeladene Dateien, Links und Notizen. Dateien liegen in <projektordner>/referenzen/. */
+export const projectReferences = sqliteTable(
+  "project_references",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["file", "link", "note"] }).notNull(),
+    category: text("category", { enum: REFERENCE_CATEGORIES }).notNull().default("sonstiges"),
+    title: text("title").notNull(),
+    /** Wofür ist die Referenz gedacht? (z. B. „Logo immer unten rechts“) */
+    note: text("note").notNull().default(""),
+    /** Relativer Pfad im Projektordner (nur bei Dateien) */
+    filePath: text("file_path"),
+    url: text("url"),
+    mime: text("mime"),
+    size: integer("size"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("project_references_project").on(t.projectId)],
+);
+
 /** Verbundene Social-Media-Konten. Tokens liegen verschlüsselt in `tokens`. */
 export const accounts = sqliteTable(
   "accounts",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id),
     platform: text("platform", { enum: PLATFORMS }).notNull(),
     externalId: text("external_id").notNull(),
     name: text("name").notNull(),
@@ -31,13 +93,18 @@ export const accounts = sqliteTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [uniqueIndex("accounts_platform_external").on(t.platform, t.externalId)],
+  (t) => [uniqueIndex("accounts_project_platform_external").on(t.projectId, t.platform, t.externalId)],
 );
 
 /** Ein fertiger Short aus dem Backlog-Ordner (ein Unterordner = ein Inhalt). */
-export const contents = sqliteTable("contents", {
+export const contents = sqliteTable(
+  "contents",
+  {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  slug: text("slug").notNull().unique(),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id),
+  slug: text("slug").notNull(),
   folder: text("folder").notNull(),
   videoFile: text("video_file").notNull(),
   coverFile: text("cover_file"),
@@ -53,7 +120,9 @@ export const contents = sqliteTable("contents", {
   available: integer("available", { mode: "boolean" }).notNull().default(true),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-});
+  },
+  (t) => [uniqueIndex("contents_project_slug").on(t.projectId, t.slug)],
+);
 
 export type PlatformTexts = {
   youtube?: { title?: string; description?: string; tags?: string[] };
@@ -131,6 +200,9 @@ export type UploadSession = { createdAt: number; url?: string; total?: number; r
 /** Wiederkehrende Posting-Zeiten (Ortszeit laut Einstellungen). */
 export const slots = sqliteTable("slots", {
   id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
   time: text("time").notNull(),
   /** Wochentage 1 = Montag … 7 = Sonntag */
   weekdays: text("weekdays", { mode: "json" }).$type<number[]>().notNull().default([1, 2, 3, 4, 5, 6, 7]),
@@ -160,9 +232,13 @@ export const oauthStates = sqliteTable("oauth_states", {
   state: text("state").primaryKey(),
   platform: text("platform", { enum: PLATFORMS }).notNull(),
   codeVerifier: text("code_verifier").notNull(),
+  /** Für welches Projekt das Konto verbunden wird */
+  projectId: integer("project_id"),
   createdAt: createdAt(),
 });
 
+export type Project = typeof projects.$inferSelect;
+export type ProjectReference = typeof projectReferences.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type Content = typeof contents.$inferSelect;
 export type Post = typeof posts.$inferSelect;

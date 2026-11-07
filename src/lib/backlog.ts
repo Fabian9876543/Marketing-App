@@ -1,16 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
-import { eq, notInArray } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm";
 import { z } from "zod";
 import type { DB } from "./db/client";
-import { contents, type Content, type PlatformTexts } from "./db/schema";
+import { contents, type Content, type PlatformTexts, type Project } from "./db/schema";
 import { probeVideo } from "./media";
 
 /**
- * Backlog = ein Ordner pro Short im Content-Ordner:
- *   <contentDir>/backlog/<name>/video.mp4   (oder die erste .mp4/.mov-Datei)
- *   <contentDir>/backlog/<name>/cover.jpg   (optional)
- *   <contentDir>/backlog/<name>/meta.json   (optional, siehe metaSchema)
+ * Backlog = ein Ordner pro Short im Projektordner:
+ *   <projektordner>/backlog/<name>/video.mp4   (oder die erste .mp4/.mov-Datei)
+ *   <projektordner>/backlog/<name>/cover.jpg   (optional)
+ *   <projektordner>/backlog/<name>/meta.json   (optional, siehe metaSchema)
  */
 export const metaSchema = z
   .object({
@@ -36,13 +36,13 @@ export type ShortMeta = z.infer<typeof metaSchema>;
 const VIDEO_EXT = [".mp4", ".mov", ".m4v"];
 const COVER_NAMES = ["cover.jpg", "cover.jpeg", "cover.png", "thumbnail.jpg", "thumbnail.png"];
 
-export const backlogDir = (contentDir: string) => path.join(contentDir, "backlog");
+export const backlogDir = (projectFolder: string) => path.join(projectFolder, "backlog");
 
 export type ImportResult = { added: number; updated: number; missing: number; errors: string[] };
 
-/** Liest den Backlog-Ordner ein und gleicht die Datenbank ab. */
-export async function importBacklog(db: DB, contentDir: string): Promise<ImportResult> {
-  const dir = backlogDir(contentDir);
+/** Liest den Backlog-Ordner eines Projekts ein und gleicht die Datenbank ab. */
+export async function importBacklog(db: DB, project: Pick<Project, "id" | "folder" | "defaultHashtags">): Promise<ImportResult> {
+  const dir = backlogDir(project.folder);
   fs.mkdirSync(dir, { recursive: true });
   const result: ImportResult = { added: 0, updated: 0, missing: 0, errors: [] };
   const seen: string[] = [];
@@ -66,7 +66,11 @@ export async function importBacklog(db: DB, contentDir: string): Promise<ImportR
       const meta = readMeta(folder, result.errors, slug);
       const coverFile = files.find((f) => COVER_NAMES.includes(f.toLowerCase())) ?? null;
       const stat = fs.statSync(path.join(folder, videoFile));
-      const existing = db.select().from(contents).where(eq(contents.slug, slug)).get();
+      const existing = db
+        .select()
+        .from(contents)
+        .where(and(eq(contents.projectId, project.id), eq(contents.slug, slug)))
+        .get();
 
       const needsProbe = !existing || existing.fileSize !== stat.size || existing.videoFile !== videoFile;
       const info = needsProbe
@@ -74,13 +78,15 @@ export async function importBacklog(db: DB, contentDir: string): Promise<ImportR
         : { durationSec: existing.durationSec, width: existing.width, height: existing.height };
 
       const values = {
+        projectId: project.id,
         slug,
         folder,
         videoFile,
         coverFile,
         title: meta.title?.trim() || prettifySlug(slug),
         description: meta.description ?? "",
-        hashtags: normalizeHashtags(meta.hashtags ?? []),
+        // Ohne eigene Hashtags gelten die Standard-Hashtags des Projekts.
+        hashtags: normalizeHashtags(meta.hashtags ?? project.defaultHashtags),
         platformTexts: (meta.platforms ?? {}) as PlatformTexts,
         aiGenerated: meta.aiGenerated ?? false,
         durationSec: info.durationSec,
@@ -106,7 +112,7 @@ export async function importBacklog(db: DB, contentDir: string): Promise<ImportR
   const gone = db
     .update(contents)
     .set({ available: false })
-    .where(seen.length ? notInArray(contents.slug, seen) : undefined)
+    .where(seen.length ? and(eq(contents.projectId, project.id), notInArray(contents.slug, seen)) : eq(contents.projectId, project.id))
     .returning({ id: contents.id })
     .all();
   result.missing = gone.length;

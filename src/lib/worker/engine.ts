@@ -6,6 +6,7 @@ import {
   contents,
   posts,
   postTargets,
+  projects,
   type Account,
   type Content,
   type Platform,
@@ -44,7 +45,7 @@ export type TickReport = {
   nextDueAt: Date | null;
 };
 
-type Job = { target: PostTarget; post: Post; account: Account; content: Content };
+type Job = { target: PostTarget; post: Post; account: Account; content: Content; projectName: string };
 
 export function createEngine(deps: EngineDeps) {
   const { db } = deps;
@@ -59,8 +60,9 @@ export function createEngine(deps: EngineDeps) {
   }
 
   function input(job: Job, settings: AppSettings, at: Date): PublishInput {
+    const { projectName: _projectName, ...rest } = job;
     return {
-      ...job,
+      ...rest,
       settings,
       now: at,
       accessToken: () => deps.getAccessToken(job.account),
@@ -74,11 +76,12 @@ export function createEngine(deps: EngineDeps) {
 
   function loadJobs(states: PostTarget["state"][], extra?: (t: PostTarget) => boolean): Job[] {
     const rows = db
-      .select({ target: postTargets, post: posts, account: accounts, content: contents })
+      .select({ target: postTargets, post: posts, account: accounts, content: contents, projectName: projects.name })
       .from(postTargets)
       .innerJoin(posts, eq(posts.id, postTargets.postId))
       .innerJoin(accounts, eq(accounts.id, postTargets.accountId))
       .innerJoin(contents, eq(contents.id, posts.contentId))
+      .innerJoin(projects, eq(projects.id, contents.projectId))
       .where(inArray(postTargets.state, states))
       .all();
     return extra ? rows.filter((r) => extra(r.target)) : rows;
@@ -338,5 +341,5 @@ function platformName(p: Platform): string {
 function label(job: Job): string {
   const platform = platformName(job.account.platform);
   const account = job.account.name === platform ? "" : ` (${job.account.name})`;
-  return `„${job.content.title}“ → ${platform}${account}`;
+  return `[${job.projectName}] „${job.content.title}“ → ${platform}${account}`;
 }

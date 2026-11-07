@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createBacklogFolder, importBacklog, normalizeHashtags } from "@/lib/backlog";
 import { getDb } from "@/lib/db/client";
-import { getSettings } from "@/lib/settings";
+import { getProject } from "@/lib/projects";
+import { sameOrigin } from "@/lib/serve";
 
 const back = (req: Request, params: Record<string, string>) => {
   const url = new URL("/backlog", req.url);
@@ -12,10 +13,7 @@ const back = (req: Request, params: Record<string, string>) => {
 /** Video hochladen → neuer Ordner im Backlog. */
 export async function POST(req: Request) {
   // Schutz gegen Formulare fremder Websites (CSRF): nur Anfragen von der eigenen Oberfläche.
-  const origin = req.headers.get("origin");
-  if (origin && new URL(origin).host !== new URL(req.url).host) {
-    return new Response("Fremde Herkunft abgelehnt", { status: 403 });
-  }
+  if (!sameOrigin(req)) return new Response("Fremde Herkunft abgelehnt", { status: 403 });
   try {
     const form = await req.formData();
     const file = form.get("file");
@@ -25,16 +23,17 @@ export async function POST(req: Request) {
     if (!title) return back(req, { fehler: "Bitte einen Titel angeben" });
 
     const db = getDb();
-    const { contentDir } = getSettings(db);
+    const project = getProject(db, Number(form.get("projectId")));
+    if (!project) return back(req, { fehler: "Projekt nicht gefunden" });
     const description = String(form.get("description") ?? "").trim();
     const hashtags = normalizeHashtags(String(form.get("hashtags") ?? "").split(/[\s,]+/));
-    createBacklogFolder(contentDir, {
+    createBacklogFolder(project.folder, {
       title,
       fileName: file.name,
       data: Buffer.from(await file.arrayBuffer()),
-      meta: { description, hashtags, aiGenerated: form.get("aiGenerated") === "on" },
+      meta: { description, ...(hashtags.length ? { hashtags } : {}), aiGenerated: form.get("aiGenerated") === "on" },
     });
-    await importBacklog(db, contentDir);
+    await importBacklog(db, project);
     return back(req, { ok: `„${title}“ liegt jetzt im Backlog` });
   } catch (err) {
     return back(req, { fehler: `Upload fehlgeschlagen: ${(err as Error).message}` });

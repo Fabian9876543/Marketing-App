@@ -12,7 +12,9 @@ import os from "node:os";
 import path from "node:path";
 import { APP_PORT, ensureDir, loadDotEnv, logDir } from "../src/lib/env";
 
-export const LABELS = { web: "de.fokuspilot.studio.web", worker: "de.fokuspilot.studio.worker" } as const;
+export const LABELS = { web: "de.marketing-studio.web", worker: "de.marketing-studio.worker" } as const;
+/** Dienste früherer Installationen (vor der Umbenennung) – werden beim Installieren entfernt. */
+const LEGACY_LABELS = ["de.fokuspilot.studio.web", "de.fokuspilot.studio.worker"];
 
 const escapeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -101,6 +103,10 @@ function install() {
     throw new Error("Kein Build gefunden – bitte `pnpm local:install` verwenden (baut vorher die App).");
   }
   const logs = ensureDir(logDir());
+  for (const label of LEGACY_LABELS) {
+    launchctl(["bootout", `${domain()}/${label}`], true);
+    fs.rmSync(plistPath(label), { force: true });
+  }
   for (const def of agentDefinitions(repo, process.execPath, logs)) {
     const file = plistPath(def.label);
     ensureDir(path.dirname(file));
@@ -113,7 +119,7 @@ function install() {
 }
 
 function uninstall() {
-  for (const label of Object.values(LABELS)) {
+  for (const label of [...Object.values(LABELS), ...LEGACY_LABELS]) {
     launchctl(["bootout", `${domain()}/${label}`], true);
     fs.rmSync(plistPath(label), { force: true });
     console.log(`✓ ${label} entfernt`);

@@ -10,7 +10,7 @@ import { decrypt, encrypt } from "@/lib/secrets/cipher";
 import { getSettings, updateSettings } from "@/lib/settings";
 import { nextFreeSlot, slotOccurrences } from "@/lib/slots";
 import { fromLocalInput, toLocalInput } from "@/lib/time";
-import { makeShort, tempDir, testDb } from "./helpers";
+import { makeShort, tempDir, testDb, testProject } from "./helpers";
 
 describe("Verschlüsselung", () => {
   it("ver- und entschlüsselt, erkennt Manipulation", () => {
@@ -26,7 +26,8 @@ describe("Verschlüsselung", () => {
 
   it("speichert Tokens verschlüsselt in der Datenbank", async () => {
     const db = testDb();
-    const acc = await upsertAccount(db, { platform: "youtube", externalId: "UC1", name: "Kanal", tokens: { accessToken: "abc", refreshToken: "r" } });
+    const project = testProject(db);
+    const acc = await upsertAccount(db, { projectId: project.id, platform: "youtube", externalId: "UC1", name: "Kanal", tokens: { accessToken: "abc", refreshToken: "r" } });
     expect(acc.tokens).not.toContain("abc");
     expect(await readTokens(acc)).toMatchObject({ accessToken: "abc", refreshToken: "r" });
   });
@@ -67,14 +68,15 @@ describe("Zeit und Slots", () => {
 describe("Backlog", () => {
   it("liest Ordner ein, nutzt meta.json und markiert verschwundene Ordner", async () => {
     const db = testDb();
-    const dir = tempDir();
+    const project = testProject(db);
+    const dir = project.folder;
     makeShort(dir, "2026-11-06-mailbox-vs-assistent", {
       meta: { title: "Mailbox vs. Assistent", hashtags: ["KI", "#Telefon", "KI"], aiGenerated: true, platforms: { youtube: { title: "YT-Titel" } } },
     });
     const second = makeShort(dir, "zahnarzt_termin");
     fs.mkdirSync(path.join(dir, "backlog", "leer")); // ohne Video → ignoriert
 
-    const r1 = await importBacklog(db, dir);
+    const r1 = await importBacklog(db, project);
     expect(r1).toMatchObject({ added: 2, updated: 0, errors: [] });
     const rows = db.select().from(contents).all();
     const first = rows.find((c) => c.slug.includes("mailbox"))!;
@@ -85,16 +87,17 @@ describe("Backlog", () => {
     expect(rows.find((c) => c.slug === "zahnarzt_termin")!.title).toBe("Zahnarzt termin");
 
     fs.rmSync(second, { recursive: true });
-    const r2 = await importBacklog(db, dir);
+    const r2 = await importBacklog(db, project);
     expect(r2).toMatchObject({ added: 0, updated: 1, missing: 1 });
   });
 
   it("meldet kaputte meta.json, importiert das Video trotzdem", async () => {
     const db = testDb();
-    const dir = tempDir();
+    const project = testProject(db);
+    const dir = project.folder;
     const folder = makeShort(dir, "kaputt");
     fs.writeFileSync(path.join(folder, "meta.json"), "{ nicht json");
-    const r = await importBacklog(db, dir);
+    const r = await importBacklog(db, project);
     expect(r.added).toBe(1);
     expect(r.errors[0]).toContain("meta.json");
   });
@@ -109,11 +112,12 @@ describe("Backlog", () => {
 describe("Posts", () => {
   async function setup() {
     const db = testDb();
-    const dir = tempDir();
+    const project = testProject(db);
+    const dir = project.folder;
     makeShort(dir, "demo");
-    await importBacklog(db, dir);
+    await importBacklog(db, project);
     const content = db.select().from(contents).get()!;
-    const account = await upsertAccount(db, { platform: "simulator", externalId: "test", name: "Test" });
+    const account = await upsertAccount(db, { projectId: project.id, platform: "simulator", externalId: "test", name: "Test" });
     return { db, content, account };
   }
 

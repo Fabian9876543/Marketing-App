@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { approvePostAction, cancelPostAction, deletePostAction, reschedulePostAction, retryTargetAction } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
-import { Badge, Flash, PageHeader, PlatformChip, StateBadge, TargetBadge, VideoPreview, flashFrom } from "@/components/ui";
+import { Badge, Flash, PageHeader, PlatformChip, ProjectBadge, StateBadge, TargetBadge, VideoPreview, flashFrom } from "@/components/ui";
 import { getDb } from "@/lib/db/client";
 import { getPostView } from "@/lib/posts";
 import { captionFor } from "@/lib/publishing/captions";
@@ -40,6 +40,7 @@ export default async function PostPage({
           <span className="flex flex-wrap items-center gap-2">
             <StateBadge state={view.display} />
             {formatDateTime(view.scheduledAt, tz)} · {relative(view.scheduledAt)}
+            <ProjectBadge project={view.project} link />
           </span>
         }
         actions={

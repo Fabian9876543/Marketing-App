@@ -1,27 +1,27 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { DateTime } from "luxon";
 import type { DB } from "./db/client";
 import { slots, type Slot } from "./db/schema";
 
 export const WEEKDAY_SHORT = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
-export function listSlots(db: DB): Slot[] {
-  return db.select().from(slots).orderBy(asc(slots.time)).all();
+export function listSlots(db: DB, projectId: number): Slot[] {
+  return db.select().from(slots).where(eq(slots.projectId, projectId)).orderBy(asc(slots.time)).all();
 }
 
-export function addSlot(db: DB, time: string, weekdays: number[]): void {
+export function addSlot(db: DB, projectId: number, time: string, weekdays: number[]): void {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) throw new Error("Uhrzeit im Format HH:MM angeben");
   const days = [...new Set(weekdays)].filter((d) => d >= 1 && d <= 7).sort();
   if (!days.length) throw new Error("Mindestens einen Wochentag wählen");
-  db.insert(slots).values({ time, weekdays: days }).run();
+  db.insert(slots).values({ projectId, time, weekdays: days }).run();
 }
 
-export function removeSlot(db: DB, id: number): void {
-  db.delete(slots).where(eq(slots.id, id)).run();
+export function removeSlot(db: DB, projectId: number, id: number): void {
+  db.delete(slots).where(and(eq(slots.id, id), eq(slots.projectId, projectId))).run();
 }
 
-export function toggleSlot(db: DB, id: number, active: boolean): void {
-  db.update(slots).set({ active }).where(eq(slots.id, id)).run();
+export function toggleSlot(db: DB, projectId: number, id: number, active: boolean): void {
+  db.update(slots).set({ active }).where(and(eq(slots.id, id), eq(slots.projectId, projectId))).run();
 }
 
 /** Alle Slot-Zeitpunkte zwischen `from` und `to` (in UTC), sortiert. */

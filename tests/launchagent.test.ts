@@ -6,7 +6,7 @@ describe("LaunchAgent", () => {
     const defs = agentDefinitions("/Users/fabian/Marketing-App", "/opt/homebrew/bin/node", "/Users/fabian/Library/Logs");
     expect(defs.map((d) => d.label)).toEqual([LABELS.web, LABELS.worker]);
     const web = buildPlist(defs[0]);
-    expect(web).toContain("<string>de.fokuspilot.studio.web</string>");
+    expect(web).toContain("<string>de.marketing-studio.web</string>");
     expect(web).toContain("<string>127.0.0.1</string>");
     expect(web).toContain("<key>KeepAlive</key>\n  <true/>");
     expect(web).toContain("/opt/homebrew/bin");

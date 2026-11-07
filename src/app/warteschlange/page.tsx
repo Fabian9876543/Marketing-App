@@ -2,7 +2,8 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { approveAllAction, approvePostAction, cancelPostAction, retryTargetAction } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
-import { Empty, Flash, PageHeader, PlatformChip, StateBadge, Tabs, TargetBadge, VideoPreview, flashFrom } from "@/components/ui";
+import { Empty, Flash, NoProject, PageHeader, ProjectBadge, PlatformChip, StateBadge, Tabs, TargetBadge, VideoPreview, flashFrom } from "@/components/ui";
+import { getScope, scopeFilter } from "@/lib/active-project";
 import { getDb } from "@/lib/db/client";
 import { listPostViews, type PostView } from "@/lib/posts";
 import { getSettings } from "@/lib/settings";
@@ -22,7 +23,10 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
   const tab: TabKey = TABS.some((t) => t.key === sp.tab) ? (sp.tab as TabKey) : "freigabe";
   const db = getDb();
   const tz = getSettings(db).timezone;
-  const all = listPostViews(db, { from: new Date(Date.now() - 60 * 86_400_000) });
+  const scope = await getScope(db);
+  if (!scope.projects.length) return <NoProject />;
+  const projectId = scopeFilter(scope);
+  const all = listPostViews(db, { from: new Date(Date.now() - 60 * 86_400_000), projectId });
 
   const groups: Record<TabKey, PostView[]> = {
     freigabe: all.filter((v) => v.display === "review"),
@@ -36,11 +40,12 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader
-        title="Warteschlange"
+        title={`Warteschlange · ${scope.all ? "Alle Projekte" : scope.active!.name}`}
         subtitle="Nichts geht online, bevor du es freigegeben hast."
         actions={
           tab === "freigabe" && list.length > 1 ? (
             <form action={approveAllAction}>
+              {projectId && <input type="hidden" name="projectId" value={projectId} />}
               <input type="hidden" name="back" value={back} />
               <SubmitButton className="btn btn-primary" confirm={`Alle ${list.length} Posts freigeben?`}>
                 Alle freigeben
@@ -66,7 +71,7 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
       ) : (
         <ul className="space-y-3">
           {list.map((v) => (
-            <QueueItem key={v.id} view={v} tz={tz} back={back} />
+            <QueueItem key={v.id} view={v} tz={tz} back={back} showProject={scope.all} />
           ))}
         </ul>
       )}
@@ -74,7 +79,7 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
   );
 }
 
-function QueueItem({ view, tz, back }: { view: PostView; tz: string; back: string }) {
+function QueueItem({ view, tz, back, showProject }: { view: PostView; tz: string; back: string; showProject: boolean }) {
   const overdue = view.display === "review" && view.scheduledAt < new Date();
   const caption = view.content.platformTexts.youtube?.description ?? view.content.description;
   return (
@@ -91,6 +96,7 @@ function QueueItem({ view, tz, back }: { view: PostView; tz: string; back: strin
           </Link>
           <StateBadge state={view.display} />
           {view.createdBy === "agent" && <span className="text-xs text-muted">von Claude erstellt</span>}
+          {showProject && <ProjectBadge project={view.project} link />}
         </div>
         <p className={`text-sm ${overdue ? "text-bad" : "text-muted"}`}>
           {formatDateTime(view.scheduledAt, tz)} ({relative(view.scheduledAt)}){overdue && " – Zeit überschritten"}

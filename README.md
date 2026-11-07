@@ -1,10 +1,15 @@
-# Fokuspilot Studio
+# Marketing Studio
 
-Lokales Marketing-Tool für **Fokuspilot (KI-Telefonassistent)**. Es plant Shorts, holt deine Freigabe ein und veröffentlicht sie pünktlich. Alles läuft auf deinem Mac, ohne Cloud. Zugangsdaten liegen verschlüsselt in der macOS-Keychain.
+Lokales Marketing-Tool für **beliebig viele Projekte** – Apps, Marken, Kunden. Es plant Shorts, holt deine Freigabe ein und veröffentlicht sie pünktlich auf YouTube, Instagram, TikTok und LinkedIn. Alles läuft auf deinem Mac, ohne Cloud. Zugangsdaten liegen verschlüsselt in der macOS-Keychain.
 
-**Stand: Phase 3** – YouTube, Instagram, TikTok und LinkedIn. Gesamtplan: [docs/PLAN.md](docs/PLAN.md) · Einrichtung: [docs/SETUP.md](docs/SETUP.md)
+**Stand:** Projekte mit Referenzen, YouTube, Instagram, TikTok und LinkedIn. Gesamtplan: [docs/PLAN.md](docs/PLAN.md) · Einrichtung: [docs/SETUP.md](docs/SETUP.md)
 
 ## Was schon geht
+- **Projekte:** Jedes Projekt hat einen eigenen Ordner, eigene Konten, eigene Posting-Zeiten, Standard-Hashtags und eine eigene Farbe. Oben in der Seitenleiste wechselst du das aktive Projekt; mit „Alle Projekte“ siehst du Übersicht, Kalender und Warteschlange über alle Projekte hinweg.
+- **Briefing und Referenzen je Projekt:**
+  - Briefing: Zielgruppe, Tonalität, Kernbotschaften, Regeln, Handlungsaufforderung.
+  - Referenzen hochladen: Logo, Screenshots, Bildschirmaufnahmen, Musik, Dokumente, Schriften, außerdem Links und Notizen; die Kategorie erkennt das Tool automatisch.
+  - Alles landet zusammen in `PROJEKT.md` im Projektordner, der Grundlage für Claude Code in Phase 2.
 - **Backlog:** ein Ordner pro Short (`video.mp4` + optional `meta.json`) oder Upload im Browser. Dauer und Format werden geprüft.
 - **Planen:** Posting-Zeiten (Slots), „nächster freier Slot“ oder feste Zeit. Kalender als Woche oder Monat.
 - **Freigabe:** Warteschlange mit „Freigeben“, „Alle freigeben“, „Verschieben“ und „Absagen“. Nichts geht ohne Freigabe online.
@@ -42,11 +47,11 @@ pnpm dev            # Oberfläche + Worker → http://localhost:4321
 
 ```
 src/app/            Oberfläche (Next.js) und API-Routen (Medien, Upload, OAuth)
-src/lib/            Logik: Backlog, Slots, Posts, Einstellungen, Verschlüsselung
+src/lib/            Logik: Projekte, Referenzen, Backlog, Slots, Posts, Einstellungen, Verschlüsselung
 src/lib/publishing/ Plattform-Anbindungen (YouTube, Instagram, TikTok, LinkedIn, Test-Kanal)
 src/lib/worker/     Veröffentlichungs-Engine
 worker/index.ts     Worker-Prozess
 scripts/            Einrichtung und launchd-Dienste
 drizzle/            Datenbank-Migrationen
-tests/              Tests, u. a. gegen einen nachgebauten YouTube-Server
+tests/              Tests, u. a. gegen nachgebaute Plattform-Server
 ```

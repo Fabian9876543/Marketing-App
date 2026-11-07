@@ -12,7 +12,7 @@ import { CHUNK_SIZE, toYoutubeError } from "@/lib/publishing/youtube/api";
 import { buildAuthUrl } from "@/lib/publishing/youtube/oauth";
 import { buildMetadata, youtubePublisher } from "@/lib/publishing/youtube/publisher";
 import { getSettings } from "@/lib/settings";
-import { makeShort, tempDir, testDb } from "./helpers";
+import { makeShort, tempDir, testDb, testProject } from "./helpers";
 
 /** Nachbau der relevanten YouTube-/Google-Endpunkte. */
 class FakeYouTube {
@@ -103,11 +103,12 @@ beforeEach(() => yt.reset());
 
 async function setup(bytes: number) {
   const db = testDb();
-  const dir = tempDir();
+  const project = testProject(db);
+    const dir = project.folder;
   const folder = makeShort(dir, "gross", { bytes, meta: { title: "Anruf um 22 Uhr", hashtags: ["KI"], aiGenerated: true } });
-  await importBacklog(db, dir);
+  await importBacklog(db, project);
   const content = db.select().from(contents).get()!;
-  const account = await upsertAccount(db, { platform: "youtube", externalId: "UC1", name: "Fokuspilot", tokens: { accessToken: "a", expiresAt: Date.now() + 3600_000 } });
+  const account = await upsertAccount(db, { projectId: project.id, platform: "youtube", externalId: "UC1", name: "Fokuspilot", tokens: { accessToken: "a", expiresAt: Date.now() + 3600_000 } });
   let session: UploadSession | null = null;
   const input = (): PublishInput => ({
     target: { id: 1, uploadSession: session } as PublishInput["target"],
@@ -171,7 +172,9 @@ describe("YouTube", () => {
 
   it("erneuert abgelaufene Tokens und speichert sie verschlüsselt", async () => {
     const db = testDb();
+    const project = testProject(db);
     const acc = await upsertAccount(db, {
+      projectId: project.id,
       platform: "youtube",
       externalId: "UC2",
       name: "K",

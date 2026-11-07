@@ -136,3 +136,69 @@ export async function flashFrom(searchParams: Promise<Record<string, string | st
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   return { ok: one(sp.ok), error: one(sp.fehler) };
 }
+
+/** Farbpunkt + Projektname (in Listen, wenn „Alle Projekte“ gewählt ist). */
+export function ProjectBadge({ project, link = false }: { project: { id: number; name: string; color: string }; link?: boolean }) {
+  const inner = (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: project.color }} />
+      {project.name}
+    </span>
+  );
+  return link ? (
+    <Link href={`/projekte/${project.id}`} className="hover:underline">
+      {inner}
+    </Link>
+  ) : (
+    inner
+  );
+}
+
+/** Erster Start: noch kein Projekt angelegt. */
+export function NoProject() {
+  return (
+    <div className="card mx-auto max-w-xl space-y-4 p-8 text-center">
+      <h2 className="text-xl font-semibold">Willkommen im Marketing Studio</h2>
+      <p className="text-sm text-muted">
+        Alles hängt an Projekten: Jedes Projekt – eine App, eine Marke, ein Kunde – hat einen eigenen Ordner, eigene Social-Media-Konten, eigene
+        Posting-Zeiten und eigene Referenzen.
+      </p>
+      <Link href="/projekte/neu" className="btn btn-primary">
+        Erstes Projekt anlegen
+      </Link>
+    </div>
+  );
+}
+
+/** Seite braucht ein bestimmtes Projekt, gewählt ist aber „Alle Projekte“. */
+export function ChooseProject({
+  projects,
+  back,
+  action,
+  what,
+}: {
+  projects: { id: number; name: string; color: string }[];
+  back: string;
+  action: (form: FormData) => Promise<void>;
+  what: string;
+}) {
+  return (
+    <div className="card mx-auto max-w-xl space-y-4 p-6">
+      <p className="text-sm text-muted">{what} gehören immer zu einem Projekt. Für welches Projekt?</p>
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {projects.map((p) => (
+          <li key={p.id}>
+            <form action={action}>
+              <input type="hidden" name="projekt" value={p.id} />
+              <input type="hidden" name="back" value={back} />
+              <button className="btn w-full justify-start">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: p.color }} />
+                {p.name}
+              </button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

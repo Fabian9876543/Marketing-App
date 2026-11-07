@@ -1,9 +1,11 @@
+import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
+import { eq } from "drizzle-orm";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as schema from "./schema";
-import { dataDir, dbFile, ensureDir } from "../env";
+import { dataDir, dbFile, ensureDir, legacyContentDir } from "../env";
 
 export type DB = BetterSQLite3Database<typeof schema>;
 
@@ -17,7 +19,23 @@ export function openDb(file: string): DB {
   sqlite.pragma("foreign_keys = ON");
   const db = drizzle(sqlite, { schema });
   migrate(db, { migrationsFolder: migrationsFolder() });
+  adoptLegacyProject(db);
   return db;
+}
+
+/**
+ * Daten aus der Zeit vor den Projekten hat die Migration in ein Projekt ohne Ordner übernommen.
+ * Dieses Projekt bekommt den alten Content-Ordner (Einstellung contentDir bzw. ~/Fokuspilot-Social).
+ */
+function adoptLegacyProject(db: DB): void {
+  const orphans = db.select().from(schema.projects).where(eq(schema.projects.folder, "")).all();
+  if (!orphans.length) return;
+  const row = db.select().from(schema.settings).where(eq(schema.settings.key, "app")).get();
+  const folder = ((row?.value as { contentDir?: string } | undefined)?.contentDir || legacyContentDir()).trim();
+  for (const p of orphans) {
+    db.update(schema.projects).set({ folder }).where(eq(schema.projects.id, p.id)).run();
+    fs.mkdirSync(path.join(folder, "backlog"), { recursive: true });
+  }
 }
 
 const globalForDb = globalThis as unknown as { __fpsDb?: DB };

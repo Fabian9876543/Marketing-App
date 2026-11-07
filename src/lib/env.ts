@@ -25,11 +25,13 @@ export function oauthRedirectUri(platform: string): string {
 
 /** Ordner für Datenbank, Schlüsseldatei (nur ohne Keychain) und Logs. */
 export function dataDir(): string {
-  if (process.env.FPS_DATA_DIR) return path.resolve(process.env.FPS_DATA_DIR);
-  if (process.platform === "darwin") {
-    return path.join(os.homedir(), "Library", "Application Support", "FokuspilotStudio");
-  }
-  return path.join(os.homedir(), ".local", "share", "fokuspilot-studio");
+  const custom = process.env.STUDIO_DATA_DIR || process.env.FPS_DATA_DIR;
+  if (custom) return path.resolve(custom);
+  const base = process.platform === "darwin" ? path.join(os.homedir(), "Library", "Application Support") : path.join(os.homedir(), ".local", "share");
+  const current = path.join(base, process.platform === "darwin" ? "MarketingStudio" : "marketing-studio");
+  // Ältere Installationen hießen „Fokuspilot Studio“ – deren Daten weiterverwenden.
+  const legacy = path.join(base, process.platform === "darwin" ? "FokuspilotStudio" : "fokuspilot-studio");
+  return !fs.existsSync(current) && fs.existsSync(legacy) ? legacy : current;
 }
 
 export function ensureDir(dir: string): string {
@@ -39,7 +41,10 @@ export function ensureDir(dir: string): string {
 
 export const dbFile = () => path.join(dataDir(), "studio.db");
 export const logDir = () => path.join(dataDir(), "logs");
-export const defaultContentDir = () => path.join(os.homedir(), "Fokuspilot-Social");
+/** Hier legt die App neue Projektordner an (je Projekt ein Unterordner). */
+export const defaultProjectsDir = () => path.join(os.homedir(), "Marketing-Studio");
+/** Content-Ordner aus der Zeit vor den Projekten. */
+export const legacyContentDir = () => path.join(os.homedir(), "Fokuspilot-Social");
 
 export const googleConfig = () => ({
   clientId: process.env.GOOGLE_CLIENT_ID ?? "",

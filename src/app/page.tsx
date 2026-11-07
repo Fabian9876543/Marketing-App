@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { Badge, Flash, PageHeader, PlatformChip, StateBadge, flashFrom } from "@/components/ui";
+import { Badge, Flash, NoProject, PageHeader, PlatformChip, ProjectBadge, StateBadge, flashFrom } from "@/components/ui";
 import { PLATFORM_LABEL, accountsExpiringSoon, listAccounts } from "@/lib/accounts";
+import { getScope, scopeFilter } from "@/lib/active-project";
 import { getDb } from "@/lib/db/client";
 import { recentEvents } from "@/lib/events";
 import { listPostViews } from "@/lib/posts";
@@ -17,34 +18,52 @@ export default async function Overview({ searchParams }: { searchParams: Promise
   const settings = getSettings(db);
   const tz = settings.timezone;
   const now = new Date();
-  const views = listPostViews(db, { from: new Date(now.getTime() - 30 * 86_400_000) });
+  const scope = await getScope(db);
+  if (!scope.projects.length) {
+    return (
+      <>
+        <PageHeader title="Übersicht" />
+        <Flash {...await flashFrom(searchParams)} />
+        <NoProject />
+      </>
+    );
+  }
+  const projectId = scopeFilter(scope);
+  const inScope = scope.all ? scope.projects : [scope.active!];
+  const views = listPostViews(db, { from: new Date(now.getTime() - 30 * 86_400_000), projectId });
   const upcoming = views.filter((v) => v.scheduledAt >= now && v.display !== "published").slice(0, 6);
   const planned = views.filter((v) => ["planned", "platform", "uploading"].includes(v.display)).length;
   const review = views.filter((v) => v.display === "review").length;
   const failed = views.filter((v) => v.display === "failed").length;
   const published7 = views.filter((v) => v.display === "published" && v.scheduledAt > new Date(now.getTime() - 7 * 86_400_000)).length;
-  const accounts = listAccounts(db);
+  const accounts = listAccounts(db, { projectId });
+  const name = (id: number) => (scope.all ? `${scope.projects.find((p) => p.id === id)?.name ?? "?"}: ` : "");
   const alive = workerAlive(db);
   const hb = readHeartbeat(db);
   const events = recentEvents(db, 12);
 
   const todo: { text: string; href: string }[] = [];
   if (!alive) todo.push({ text: "Der Worker läuft nicht – ohne ihn wird nichts veröffentlicht. Starte ihn mit „pnpm dev“ oder „pnpm local:install“.", href: "/einstellungen#worker" });
-  if (!accounts.length) todo.push({ text: "Noch kein Konto verbunden. Verbinde YouTube oder lege zum Ausprobieren einen Test-Kanal an.", href: "/konten" });
+  if (!accounts.length) todo.push({ text: "Noch kein Konto verbunden. Verbinde eine Plattform oder lege zum Ausprobieren einen Test-Kanal an.", href: "/konten" });
   if (Object.values(oauthProviders).every((p) => missingEnv(p).length > 0)) {
     todo.push({ text: "Noch keine Plattform eingerichtet – trage die Zugangsdaten in die .env ein (Anleitung in docs/SETUP.md).", href: "/konten" });
   }
   for (const a of accountsExpiringSoon(accounts)) {
-    todo.push({ text: `${a.name} (${PLATFORM_LABEL[a.platform]}) muss bis ${formatDateTime(a.reconnectBy!, tz)} neu verbunden werden.`, href: "/konten" });
+    todo.push({ text: `${name(a.projectId)}${a.name} (${PLATFORM_LABEL[a.platform]}) muss bis ${formatDateTime(a.reconnectBy!, tz)} neu verbunden werden.`, href: "/konten" });
   }
-  if (!listSlots(db).length) todo.push({ text: "Lege Posting-Zeiten an, z. B. 09:00 und 19:00.", href: "/einstellungen#slots" });
+  for (const p of inScope.filter((p) => !listSlots(db, p.id).length)) {
+    todo.push({ text: `${scope.all ? `${p.name}: ` : ""}Lege Posting-Zeiten an, z. B. 09:00 und 19:00.`, href: `/projekte/${p.id}?tab=zeiten` });
+  }
+  for (const p of inScope.filter((p) => !p.brief.audience && !p.brief.messages)) {
+    todo.push({ text: `${scope.all ? `${p.name}: ` : ""}Briefing ausfüllen (Zielgruppe, Kernbotschaften) – Grundlage für alle Texte.`, href: `/projekte/${p.id}?tab=briefing` });
+  }
   for (const a of accounts.filter((a) => a.status === "needs_reconnect")) {
-    todo.push({ text: `${a.name} muss neu verbunden werden: ${a.statusMessage ?? ""}`, href: "/konten" });
+    todo.push({ text: `${name(a.projectId)}${a.name} muss neu verbunden werden: ${a.statusMessage ?? ""}`, href: "/konten" });
   }
 
   return (
     <>
-      <PageHeader title="Übersicht" subtitle="Was als Nächstes rausgeht und ob alles läuft." />
+      <PageHeader title={`Übersicht · ${scope.all ? "Alle Projekte" : scope.active!.name}`} subtitle="Was als Nächstes rausgeht und ob alles läuft." />
       <Flash {...await flashFrom(searchParams)} />
 
       {todo.length > 0 && (
@@ -91,7 +110,10 @@ export default async function Overview({ searchParams }: { searchParams: Promise
                 <li key={v.id}>
                   <Link href={`/posts/${v.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 hover:bg-surface-2 sm:flex-nowrap">
                     <div className="shrink-0 whitespace-nowrap text-sm tabular-nums text-muted">{formatDateTime(v.scheduledAt, tz)}</div>
-                    <div className="min-w-0 flex-1 truncate text-sm font-medium">{v.content.title}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{v.content.title}</div>
+                      {scope.all && <ProjectBadge project={v.project} />}
+                    </div>
                     <div className="flex gap-1">
                       {v.targets.map((t) => (
                         <PlatformChip key={t.id} platform={t.account.platform} title={t.account.name} />

@@ -2,11 +2,16 @@
 
 import { execFile } from "node:child_process";
 import fs from "node:fs";
+import path from "node:path";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { disconnectAccount, upsertAccount } from "@/lib/accounts";
-import { backlogDir, importBacklog } from "@/lib/backlog";
+import { ALL_PROJECTS, PROJECT_COOKIE } from "@/lib/active-project";
+import { importBacklog, normalizeHashtags } from "@/lib/backlog";
 import { getDb } from "@/lib/db/client";
+import { contents } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import {
   approveAll,
   approvePost,
@@ -17,6 +22,18 @@ import {
   retryTarget,
   takenTimes,
 } from "@/lib/posts";
+import {
+  backlogFolder,
+  createProject,
+  deleteProject,
+  expandHome,
+  referencesFolder,
+  requireProject,
+  setArchived,
+  updateBrief,
+  updateProject,
+} from "@/lib/projects";
+import { addLinkReference, addNoteReference, deleteReference, isCategory, updateReference } from "@/lib/references";
 import { appSettingsSchema, getSettings, updateSettings } from "@/lib/settings";
 import { addSlot, listSlots, nextFreeSlot, removeSlot, toggleSlot } from "@/lib/slots";
 import { formatDateTime, fromLocalInput, isValidTimezone } from "@/lib/time";
@@ -55,6 +72,15 @@ const num = (form: FormData, key: string) => {
   return n;
 };
 
+const str = (form: FormData, key: string) => String(form.get(key) ?? "");
+
+/** Projekt aus dem Formularfeld projectId. */
+const formProject = (form: FormData) => requireProject(getDb(), num(form, "projectId"));
+
+async function setActiveProject(value: string) {
+  (await cookies()).set(PROJECT_COOKIE, value, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 365 * 86_400 });
+}
+
 /* ---------- Posts ---------- */
 
 export async function schedulePostAction(form: FormData) {
@@ -62,6 +88,8 @@ export async function schedulePostAction(form: FormData) {
     const db = getDb();
     const settings = getSettings(db);
     const contentId = num(form, "contentId");
+    const content = db.select().from(contents).where(eq(contents.id, contentId)).get();
+    if (!content) throw new Error("Short nicht gefunden");
     const accountIds = form.getAll("accountIds").map(Number).filter(Boolean);
     let at: Date;
     if (form.get("mode") === "time") {
@@ -69,8 +97,8 @@ export async function schedulePostAction(form: FormData) {
       if (!value) throw new Error("Bitte eine Zeit wählen");
       at = fromLocalInput(value, settings.timezone);
     } else {
-      const slot = nextFreeSlot(listSlots(db), takenTimes(db, new Date()), new Date(), settings.timezone);
-      if (!slot) throw new Error("Kein freier Slot – lege unter „Einstellungen“ Posting-Zeiten an oder wähle eine feste Zeit");
+      const slot = nextFreeSlot(listSlots(db, content.projectId), takenTimes(db, new Date(), content.projectId), new Date(), settings.timezone);
+      if (!slot) throw new Error("Kein freier Slot – lege beim Projekt Posting-Zeiten an oder wähle eine feste Zeit");
       at = slot;
     }
     const approve = form.get("approve") === "on";
@@ -87,7 +115,10 @@ export async function approvePostAction(form: FormData) {
 }
 
 export async function approveAllAction(form: FormData) {
-  await attempt(form, "/warteschlange", () => `${approveAll(getDb())} Posts freigegeben`);
+  await attempt(form, "/warteschlange", () => {
+    const projectId = Number(form.get("projectId")) || undefined;
+    return `${approveAll(getDb(), new Date(), projectId)} Posts freigegeben`;
+  });
 }
 
 export async function reschedulePostAction(form: FormData) {
@@ -129,8 +160,7 @@ export async function retryTargetAction(form: FormData) {
 
 export async function importBacklogAction(form: FormData) {
   await attempt(form, "/backlog", async () => {
-    const db = getDb();
-    const r = await importBacklog(db, getSettings(db).contentDir);
+    const r = await importBacklog(getDb(), formProject(form));
     const parts = [`${r.added} neu`, `${r.updated} aktualisiert`];
     if (r.missing) parts.push(`${r.missing} fehlen`);
     if (r.errors.length) throw new Error(`Eingelesen (${parts.join(", ")}), aber: ${r.errors.join(" · ")}`);
@@ -138,9 +168,12 @@ export async function importBacklogAction(form: FormData) {
   });
 }
 
-export async function openContentFolderAction(form: FormData) {
+/** Projektordner (oder backlog/ bzw. referenzen/) im Finder öffnen. */
+export async function openProjectFolderAction(form: FormData) {
   await attempt(form, "/backlog", () => {
-    const dir = backlogDir(getSettings(getDb()).contentDir);
+    const project = formProject(form);
+    const sub = str(form, "sub");
+    const dir = sub === "backlog" ? backlogFolder(project) : sub === "referenzen" ? referencesFolder(project) : project.folder;
     fs.mkdirSync(dir, { recursive: true });
     if (process.platform !== "darwin") return `Ordner: ${dir}`;
     execFile("open", [dir]);
@@ -151,25 +184,144 @@ export async function openContentFolderAction(form: FormData) {
 /* ---------- Slots ---------- */
 
 export async function addSlotAction(form: FormData) {
-  await attempt(form, "/einstellungen", () => {
-    const time = String(form.get("time") ?? "");
-    addSlot(getDb(), time, form.getAll("weekdays").map(Number));
+  await attempt(form, "/projekte", () => {
+    const time = str(form, "time");
+    addSlot(getDb(), num(form, "projectId"), time, form.getAll("weekdays").map(Number));
     return `Posting-Zeit ${time} angelegt`;
   });
 }
 
 export async function removeSlotAction(form: FormData) {
-  await attempt(form, "/einstellungen", () => {
-    removeSlot(getDb(), num(form, "slotId"));
+  await attempt(form, "/projekte", () => {
+    removeSlot(getDb(), num(form, "projectId"), num(form, "slotId"));
     return "Posting-Zeit gelöscht";
   });
 }
 
 export async function toggleSlotAction(form: FormData) {
-  await attempt(form, "/einstellungen", () => {
+  await attempt(form, "/projekte", () => {
     const active = form.get("active") === "1";
-    toggleSlot(getDb(), num(form, "slotId"), active);
+    toggleSlot(getDb(), num(form, "projectId"), num(form, "slotId"), active);
     return active ? "Posting-Zeit aktiviert" : "Posting-Zeit pausiert";
+  });
+}
+
+/* ---------- Projekte ---------- */
+
+/** Aktives Projekt wechseln („alle“ = alle Projekte). */
+export async function switchProjectAction(form: FormData) {
+  const value = str(form, "projekt");
+  await setActiveProject(value === ALL_PROJECTS ? ALL_PROJECTS : String(num(form, "projekt")));
+  finish(backTo(form, "/"), {});
+}
+
+export async function createProjectAction(form: FormData) {
+  let target = "/projekte/neu";
+  let msg: { ok?: string; error?: string };
+  try {
+    const project = createProject(getDb(), {
+      name: str(form, "name"),
+      description: str(form, "description"),
+      website: str(form, "website"),
+      color: str(form, "color"),
+      folder: str(form, "folder"),
+      defaultHashtags: normalizeHashtags(str(form, "hashtags").split(/[\s,]+/)),
+    });
+    await setActiveProject(String(project.id));
+    target = `/projekte/${project.id}?tab=briefing`;
+    msg = { ok: `Projekt „${project.name}“ angelegt – Ordner: ${project.folder}` };
+  } catch (err) {
+    msg = { error: (err as Error).message };
+  }
+  finish(target, msg);
+}
+
+export async function updateProjectAction(form: FormData) {
+  await attempt(form, "/projekte", () => {
+    const project = updateProject(getDb(), num(form, "projectId"), {
+      name: str(form, "name"),
+      description: str(form, "description"),
+      website: str(form, "website"),
+      color: str(form, "color"),
+      folder: str(form, "folder"),
+      defaultHashtags: normalizeHashtags(str(form, "hashtags").split(/[\s,]+/)),
+    });
+    return `Projekt „${project.name}“ gespeichert`;
+  });
+}
+
+export async function updateBriefAction(form: FormData) {
+  await attempt(form, "/projekte", () => {
+    updateBrief(getDb(), num(form, "projectId"), {
+      audience: str(form, "audience"),
+      tone: str(form, "tone"),
+      messages: str(form, "messages"),
+      rules: str(form, "rules"),
+      cta: str(form, "cta"),
+    });
+    return "Briefing gespeichert – PROJEKT.md im Projektordner ist aktualisiert";
+  });
+}
+
+export async function archiveProjectAction(form: FormData) {
+  await attempt(form, "/projekte", () => {
+    const archived = form.get("archived") === "1";
+    setArchived(getDb(), num(form, "projectId"), archived);
+    return archived ? "Projekt archiviert – geplante Posts laufen weiter" : "Projekt wieder aktiv";
+  });
+}
+
+export async function deleteProjectAction(form: FormData) {
+  let error: string | undefined;
+  try {
+    deleteProject(getDb(), num(form, "projectId"));
+  } catch (err) {
+    error = (err as Error).message;
+  }
+  finish(error ? backTo(form, "/projekte") : "/projekte", error ? { error } : { ok: "Projekt gelöscht – der Ordner auf der Festplatte ist erhalten geblieben" });
+}
+
+/* ---------- Referenzen ---------- */
+
+const categoryOf = (form: FormData, fallback: "inspiration" | "sonstiges") => {
+  const c = str(form, "category");
+  return isCategory(c) ? c : fallback;
+};
+
+export async function addReferenceLinkAction(form: FormData) {
+  await attempt(form, "/projekte", () => {
+    const ref = addLinkReference(getDb(), formProject(form), {
+      url: str(form, "url"),
+      title: str(form, "title"),
+      note: str(form, "note"),
+      category: categoryOf(form, "inspiration"),
+    });
+    return `Link „${ref.title}“ gespeichert`;
+  });
+}
+
+export async function addReferenceNoteAction(form: FormData) {
+  await attempt(form, "/projekte", () => {
+    const ref = addNoteReference(getDb(), formProject(form), { title: str(form, "title"), note: str(form, "note"), category: categoryOf(form, "sonstiges") });
+    return `Notiz „${ref.title}“ gespeichert`;
+  });
+}
+
+export async function updateReferenceAction(form: FormData) {
+  await attempt(form, "/projekte", () => {
+    updateReference(getDb(), formProject(form), num(form, "referenceId"), {
+      title: str(form, "title"),
+      note: str(form, "note"),
+      category: categoryOf(form, "sonstiges"),
+    });
+    return "Referenz gespeichert";
+  });
+}
+
+export async function deleteReferenceAction(form: FormData) {
+  await attempt(form, "/projekte", () => {
+    deleteReference(getDb(), formProject(form), num(form, "referenceId"));
+    return "Referenz entfernt (Datei liegt in referenzen/_geloescht)";
   });
 }
 
@@ -181,12 +333,12 @@ export async function saveSettingsAction(form: FormData) {
     const current = getSettings(db);
     const timezone = String(form.get("timezone") ?? current.timezone).trim();
     if (!isValidTimezone(timezone)) throw new Error(`Unbekannte Zeitzone: ${timezone}`);
-    const contentDir = String(form.get("contentDir") ?? current.contentDir).trim();
-    if (!contentDir.startsWith("/") && !contentDir.startsWith("~")) throw new Error("Content-Ordner bitte als vollständigen Pfad angeben");
+    const projectsDir = expandHome(str(form, "projectsDir") || current.projectsDir);
+    if (!path.isAbsolute(projectsDir)) throw new Error("Projekte-Ordner bitte als vollständigen Pfad angeben");
     const parsed = appSettingsSchema.safeParse({
       timezone,
       missedToleranceMinutes: Number(form.get("missedToleranceMinutes")),
-      contentDir: contentDir.replace(/^~(?=\/|$)/, process.env.HOME ?? "~"),
+      projectsDir,
       youtube: {
         privacy: form.get("ytPrivacy"),
         uploadAheadDays: Number(form.get("ytUploadAheadDays")),
@@ -209,7 +361,7 @@ export async function saveSettingsAction(form: FormData) {
 
 export async function addTestAccountAction(form: FormData) {
   await attempt(form, "/konten", async () => {
-    await upsertAccount(getDb(), { platform: "simulator", externalId: "test-kanal", name: "Test-Kanal", handle: "lokal" });
+    await upsertAccount(getDb(), { projectId: formProject(form).id, platform: "simulator", externalId: "test-kanal", name: "Test-Kanal", handle: "lokal" });
     return "Test-Kanal hinzugefügt – Posts landen als Kopie im Datenordner";
   });
 }

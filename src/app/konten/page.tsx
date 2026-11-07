@@ -1,10 +1,11 @@
 import { connection } from "next/server";
-import { addTestAccountAction, disconnectAccountAction } from "@/app/actions";
+import { addTestAccountAction, disconnectAccountAction, switchProjectAction } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
-import { Badge, Flash, PageHeader, PlatformChip, flashFrom } from "@/components/ui";
+import { Badge, ChooseProject, Flash, NoProject, PageHeader, PlatformChip, ProjectBadge, flashFrom } from "@/components/ui";
 import { PLATFORM_LABEL, listAccounts } from "@/lib/accounts";
+import { getScope, scopeFilter } from "@/lib/active-project";
 import { getDb } from "@/lib/db/client";
-import type { Account, Platform } from "@/lib/db/schema";
+import type { Account, Platform, Project } from "@/lib/db/schema";
 import { missingEnv } from "@/lib/publishing/oauth";
 import { oauthProviders } from "@/lib/publishing/registry";
 import { getSettings } from "@/lib/settings";
@@ -15,7 +16,7 @@ type Connectable = Exclude<Platform, "simulator">;
 const INFO: Record<Connectable, { title: string; text: string; note: string }> = {
   youtube: {
     title: "YouTube Shorts",
-    text: "Melde dich mit dem Google-Konto an, dem der Fokuspilot-Kanal gehört.",
+    text: "Melde dich mit dem Google-Konto an, dem der YouTube-Kanal des Projekts gehört.",
     note: "Solange dein Google-Projekt nicht von YouTube geprüft ist (Audit), bleiben per API hochgeladene Videos privat.",
   },
   instagram: {
@@ -25,7 +26,7 @@ const INFO: Record<Connectable, { title: string; text: string; note: string }> =
   },
   tiktok: {
     title: "TikTok",
-    text: "Melde dich mit dem TikTok-Konto von Fokuspilot an.",
+    text: "Melde dich mit dem TikTok-Konto des Projekts an.",
     note: "Ohne TikTok-Audit landen Videos als Entwurf in deiner TikTok-App – dort Text einfügen und posten.",
   },
   linkedin: {
@@ -38,14 +39,21 @@ const INFO: Record<Connectable, { title: string; text: string; note: string }> =
 export default async function AccountsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await connection();
   const db = getDb();
-  const accounts = listAccounts(db);
+  const scope = await getScope(db);
+  if (!scope.projects.length) return <NoProject />;
+  const project = scope.active;
+  const accounts = listAccounts(db, { projectId: scopeFilter(scope) });
   const settings = getSettings(db);
   const hasTest = accounts.some((a) => a.platform === "simulator");
   const connectable = Object.keys(INFO) as Connectable[];
+  const projectById = new Map(scope.projects.map((p) => [p.id, p]));
 
   return (
     <>
-      <PageHeader title="Konten" subtitle="Verbundene Kanäle. Zugangsdaten liegen verschlüsselt auf diesem Rechner." />
+      <PageHeader
+        title={`Konten · ${project ? project.name : "Alle Projekte"}`}
+        subtitle="Jedes Konto gehört zu einem Projekt. Zugangsdaten liegen verschlüsselt auf diesem Rechner."
+      />
       <Flash {...await flashFrom(searchParams)} />
 
       <section className="mb-8">
@@ -55,15 +63,21 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         ) : (
           <ul className="card divide-y divide-line">
             {accounts.map((a) => (
-              <AccountRow key={a.id} account={a} />
+              <AccountRow key={a.id} account={a} project={scope.all ? projectById.get(a.projectId) : undefined} />
             ))}
           </ul>
         )}
       </section>
 
+      {!project ? (
+        <section>
+          <h2 className="h2 mb-3">Hinzufügen</h2>
+          <ChooseProject projects={scope.projects} back="/konten" action={switchProjectAction} what="Konten" />
+        </section>
+      ) : (
       <section>
-        <h2 className="h2 mb-3">Hinzufügen</h2>
-        <div className="grid gap-3 md:grid-cols-2">
+        <h2 className="h2 mb-3">Hinzufügen zu „{project.name}“</h2>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {connectable.map((platform) => {
             const provider = oauthProviders[platform]!;
             const missing = missingEnv(provider);
@@ -78,12 +92,12 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                 {missing.length === 0 ? (
                   <>
                     <p className="text-sm text-muted">{info.text}</p>
-                    <a href={`/api/oauth/${platform}/start`} className="btn btn-primary self-start">
+                    <a href={`/api/oauth/${platform}/start?projekt=${project.id}`} className="btn btn-primary self-start">
                       {PLATFORM_LABEL[platform]} verbinden
                     </a>
                   </>
                 ) : (
-                  <div className="space-y-2 text-sm text-muted">
+                  <div className="space-y-2 text-sm text-muted [overflow-wrap:anywhere]">
                     <p>
                       Trage in die <code>.env</code> ein: {missing.map((m) => <code key={m} className="mr-1 rounded bg-surface-2 px-1">{m}</code>)} und starte die App neu.
                     </p>
@@ -118,6 +132,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
               <Badge tone="ok">Bereits angelegt</Badge>
             ) : (
               <form action={addTestAccountAction}>
+                <input type="hidden" name="projectId" value={project.id} />
                 <input type="hidden" name="back" value="/konten" />
                 <SubmitButton>Test-Kanal anlegen</SubmitButton>
               </form>
@@ -125,17 +140,21 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
           </div>
         </div>
       </section>
+      )}
     </>
   );
 }
 
-function AccountRow({ account: a }: { account: Account }) {
+function AccountRow({ account: a, project }: { account: Account; project?: Project }) {
   const soon = a.reconnectBy && a.reconnectBy.getTime() - Date.now() < 7 * 86_400_000;
   return (
     <li className="flex flex-wrap items-center gap-3 px-4 py-3">
       <PlatformChip platform={a.platform} />
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">{a.name}</div>
+        <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+          {a.name}
+          {project && <ProjectBadge project={project} link />}
+        </div>
         <div className="text-xs text-muted">
           {PLATFORM_LABEL[a.platform]}
           {a.handle ? ` · ${a.handle}` : ""}
@@ -150,7 +169,7 @@ function AccountRow({ account: a }: { account: Account }) {
       </div>
       {a.status === "active" ? <Badge tone={soon ? "warn" : "ok"}>{soon ? "Läuft bald ab" : "Aktiv"}</Badge> : <Badge tone="bad">Neu verbinden</Badge>}
       {a.platform !== "simulator" && (a.status === "needs_reconnect" || soon) && (
-        <a href={`/api/oauth/${a.platform}/start`} className="btn btn-primary">
+        <a href={`/api/oauth/${a.platform}/start?projekt=${a.projectId}`} className="btn btn-primary">
           Neu verbinden
         </a>
       )}

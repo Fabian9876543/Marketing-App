@@ -5,10 +5,12 @@ import {
   contents,
   posts,
   postTargets,
+  projects,
   type Account,
   type Content,
   type Post,
   type PostTarget,
+  type Project,
 } from "./db/schema";
 
 export type TargetView = PostTarget & { account: Account };
@@ -21,7 +23,7 @@ export type DisplayState =
   | "partial"
   | "failed"
   | "cancelled";
-export type PostView = Post & { content: Content; targets: TargetView[]; display: DisplayState };
+export type PostView = Post & { content: Content; project: Project; targets: TargetView[]; display: DisplayState };
 
 export const DISPLAY_LABEL: Record<DisplayState, string> = {
   review: "Zur Freigabe",
@@ -73,6 +75,9 @@ export function createPost(
   if (accs.length !== ids.length || accs.some((a) => a.status === "disabled")) {
     throw new PostError("Eines der Konten ist nicht verbunden");
   }
+  if (accs.some((a) => a.projectId !== content.projectId)) {
+    throw new PostError("Die Konten gehören zu einem anderen Projekt als der Short");
+  }
   if (input.scheduledAt.getTime() < Date.now() - 60_000) throw new PostError("Die Zeit liegt in der Vergangenheit");
 
   return db.transaction((tx) => {
@@ -112,8 +117,14 @@ export function approvePost(db: DB, id: number, now = new Date()): void {
   });
 }
 
-export function approveAll(db: DB, now = new Date()): number {
-  const ids = db.select({ id: posts.id }).from(posts).where(eq(posts.state, "review")).all();
+/** Alle wartenden Posts freigeben – optional nur die eines Projekts. */
+export function approveAll(db: DB, now = new Date(), projectId?: number): number {
+  const ids = db
+    .select({ id: posts.id })
+    .from(posts)
+    .innerJoin(contents, eq(contents.id, posts.contentId))
+    .where(projectId ? and(eq(posts.state, "review"), eq(contents.projectId, projectId)) : eq(posts.state, "review"))
+    .all();
   for (const { id } of ids) approvePost(db, id, now);
   return ids.length;
 }
@@ -180,27 +191,34 @@ export function deletePost(db: DB, id: number): void {
   db.delete(posts).where(eq(posts.id, id)).run();
 }
 
-/** Belegte Zeiten (für die Slot-Suche). */
-export function takenTimes(db: DB, from: Date): Date[] {
+/** Belegte Zeiten eines Projekts (für die Slot-Suche). */
+export function takenTimes(db: DB, from: Date, projectId: number): Date[] {
   return db
     .select({ at: posts.scheduledAt })
     .from(posts)
-    .where(and(ne(posts.state, "cancelled"), gte(posts.scheduledAt, from)))
+    .innerJoin(contents, eq(contents.id, posts.contentId))
+    .where(and(ne(posts.state, "cancelled"), gte(posts.scheduledAt, from), eq(contents.projectId, projectId)))
     .all()
     .map((r) => r.at);
 }
 
-/** Posts mit Inhalt, Zielen und Konten laden. */
-export function listPostViews(db: DB, opts: { from?: Date; to?: Date; includeCancelled?: boolean } = {}): PostView[] {
+/** Posts mit Inhalt, Projekt, Zielen und Konten laden – optional nur für ein Projekt. */
+export function listPostViews(
+  db: DB,
+  opts: { from?: Date; to?: Date; includeCancelled?: boolean; projectId?: number } = {},
+): PostView[] {
   const conds = [];
   if (opts.from) conds.push(gte(posts.scheduledAt, opts.from));
   if (!opts.includeCancelled) conds.push(ne(posts.state, "cancelled"));
+  if (opts.projectId) conds.push(eq(contents.projectId, opts.projectId));
   let rows = db
-    .select()
+    .select({ post: posts })
     .from(posts)
+    .innerJoin(contents, eq(contents.id, posts.contentId))
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(asc(posts.scheduledAt))
-    .all();
+    .all()
+    .map((r) => r.post);
   if (opts.to) rows = rows.filter((p) => p.scheduledAt <= opts.to!);
   return enrich(db, rows);
 }
@@ -229,19 +247,26 @@ function enrich(db: DB, rows: Post[]): PostView[] {
         .where(inArray(accounts.id, [...new Set(targetRows.map((t) => t.accountId))]))
         .all()
     : [];
+  const projectRows = db
+    .select()
+    .from(projects)
+    .where(inArray(projects.id, [...new Set(contentRows.map((c) => c.projectId))]))
+    .all();
   const contentById = new Map(contentRows.map((c) => [c.id, c]));
   const accountById = new Map(accountRows.map((a) => [a.id, a]));
+  const projectById = new Map(projectRows.map((p) => [p.id, p]));
   return rows.map((p) => {
     const targets = targetRows
       .filter((t) => t.postId === p.id)
       .map((t) => ({ ...t, account: accountById.get(t.accountId)! }));
-    return { ...p, content: contentById.get(p.contentId)!, targets, display: displayState(p, targets) };
+    const content = contentById.get(p.contentId)!;
+    return { ...p, content, project: projectById.get(content.projectId)!, targets, display: displayState(p, targets) };
   });
 }
 
 /** Wie oft ist ein Inhalt eingeplant bzw. veröffentlicht? */
-export function contentUsage(db: DB): Map<number, { planned: number; published: number }> {
-  const views = listPostViews(db);
+export function contentUsage(db: DB, projectId: number): Map<number, { planned: number; published: number }> {
+  const views = listPostViews(db, { projectId });
   const map = new Map<number, { planned: number; published: number }>();
   for (const v of views) {
     const u = map.get(v.contentId) ?? { planned: 0, published: 0 };

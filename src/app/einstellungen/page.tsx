@@ -1,6 +1,6 @@
 import path from "node:path";
 import { connection } from "next/server";
-import { addSlotAction, removeSlotAction, saveSettingsAction, toggleSlotAction } from "@/app/actions";
+import { saveSettingsAction } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
 import { Badge, Flash, PageHeader, flashFrom } from "@/components/ui";
 import { getDb } from "@/lib/db/client";
@@ -10,7 +10,6 @@ import { missingEnv } from "@/lib/publishing/oauth";
 import { oauthProviders } from "@/lib/publishing/registry";
 import { getEncryptionKey } from "@/lib/secrets/keystore";
 import { getSettings, readHeartbeat, workerAlive } from "@/lib/settings";
-import { WEEKDAY_SHORT, listSlots } from "@/lib/slots";
 import { relative } from "@/lib/time";
 
 const BACK = "/einstellungen";
@@ -19,7 +18,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   await connection();
   const db = getDb();
   const s = getSettings(db);
-  const slots = listSlots(db);
   const alive = workerAlive(db);
   const hb = readHeartbeat(db);
   let keySource = "unbekannt";
@@ -31,60 +29,11 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader title="Einstellungen" />
+      <PageHeader title="Einstellungen" subtitle="Gelten für alle Projekte. Posting-Zeiten, Ordner und Briefing stellst du je Projekt ein." />
       <Flash {...await flashFrom(searchParams)} />
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section id="slots" className="card p-4">
-          <h2 className="h2 mb-1">Posting-Zeiten</h2>
-          <p className="mb-4 text-sm text-muted">„Nächster freier Slot“ plant in diese Zeiten ein. Zeitzone: {s.timezone}.</p>
-          <ul className="mb-4 divide-y divide-line">
-            {slots.length === 0 && <li className="py-2 text-sm text-muted">Noch keine Zeiten angelegt.</li>}
-            {slots.map((slot) => (
-              <li key={slot.id} className="flex flex-wrap items-center gap-2 py-2">
-                <span className={`w-14 font-semibold tabular-nums ${slot.active ? "" : "text-muted line-through"}`}>{slot.time}</span>
-                <span className="flex-1 text-sm text-muted">
-                  {slot.weekdays.length === 7 ? "täglich" : slot.weekdays.map((d) => WEEKDAY_SHORT[d - 1]).join(", ")}
-                </span>
-                <form action={toggleSlotAction}>
-                  <input type="hidden" name="slotId" value={slot.id} />
-                  <input type="hidden" name="active" value={slot.active ? "0" : "1"} />
-                  <input type="hidden" name="back" value={`${BACK}#slots`} />
-                  <SubmitButton className="btn py-1 text-xs">{slot.active ? "Pausieren" : "Aktivieren"}</SubmitButton>
-                </form>
-                <form action={removeSlotAction}>
-                  <input type="hidden" name="slotId" value={slot.id} />
-                  <input type="hidden" name="back" value={`${BACK}#slots`} />
-                  <SubmitButton className="btn btn-danger py-1 text-xs" confirm={`Posting-Zeit ${slot.time} löschen?`}>
-                    Löschen
-                  </SubmitButton>
-                </form>
-              </li>
-            ))}
-          </ul>
-          <form action={addSlotAction} className="space-y-3 border-t border-line pt-4">
-            <input type="hidden" name="back" value={`${BACK}#slots`} />
-            <div className="flex items-end gap-2">
-              <div>
-                <label className="label" htmlFor="time">
-                  Uhrzeit
-                </label>
-                <input id="time" type="time" name="time" required defaultValue="09:00" className="input w-auto" />
-              </div>
-              <SubmitButton className="btn btn-primary">Hinzufügen</SubmitButton>
-            </div>
-            <fieldset className="flex flex-wrap gap-3 text-sm">
-              <legend className="label">Wochentage</legend>
-              {WEEKDAY_SHORT.map((d, i) => (
-                <label key={d} className="flex items-center gap-1">
-                  <input type="checkbox" name="weekdays" value={i + 1} defaultChecked /> {d}
-                </label>
-              ))}
-            </fieldset>
-          </form>
-        </section>
-
-        <form action={saveSettingsAction} className="card space-y-4 p-4">
+        <form action={saveSettingsAction} className="card space-y-4 p-4 lg:col-span-2">
           <input type="hidden" name="back" value={BACK} />
           <h2 className="h2">Allgemein</h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -102,10 +51,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </div>
           </div>
           <div>
-            <label className="label" htmlFor="contentDir">
-              Content-Ordner (enthält den Unterordner „backlog“)
+            <label className="label" htmlFor="projectsDir">
+              Ordner für neue Projekte (je Projekt ein Unterordner)
             </label>
-            <input id="contentDir" name="contentDir" defaultValue={s.contentDir} className="input font-mono text-xs" />
+            <input id="projectsDir" name="projectsDir" defaultValue={s.projectsDir} className="input font-mono text-xs" />
           </div>
 
           <h2 className="h2 border-t border-line pt-4">YouTube</h2>

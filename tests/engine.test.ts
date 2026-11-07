@@ -8,7 +8,7 @@ import { cancelPost, createPost, getPostView, reschedulePost } from "@/lib/posts
 import { PublishError, type Publisher, type PublishInput } from "@/lib/publishing/types";
 import { updateSettings } from "@/lib/settings";
 import { createEngine } from "@/lib/worker/engine";
-import { makeShort, tempDir, testDb } from "./helpers";
+import { makeShort, tempDir, testDb, testProject } from "./helpers";
 
 const MIN = 60_000;
 
@@ -37,11 +37,12 @@ function fakePublisher(platform: Platform, behaviour: (input: PublishInput, n: n
 
 async function setup(platform: Platform = "simulator") {
   const db = testDb();
-  const dir = tempDir();
+  const project = testProject(db);
+    const dir = project.folder;
   makeShort(dir, "demo");
-  await importBacklog(db, dir);
+  await importBacklog(db, project);
   const content = db.select().from(contents).get()!;
-  const account = await upsertAccount(db, { platform, externalId: "acc", name: "Konto" });
+  const account = await upsertAccount(db, { projectId: project.id, platform, externalId: "acc", name: "Konto" });
   return { db, content, account };
 }
 

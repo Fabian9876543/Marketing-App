@@ -1,5 +1,5 @@
 /**
- * Fokuspilot Studio – Worker
+ * Marketing Studio – Worker
  * Läuft im Hintergrund (auf dem Mac als LaunchAgent) und veröffentlicht fällige Posts.
  */
 import { getDb } from "@/lib/db/client";
@@ -8,7 +8,8 @@ import { importBacklog } from "@/lib/backlog";
 import { logEvent, pruneEvents } from "@/lib/events";
 import { publishers } from "@/lib/publishing/registry";
 import { getAccessToken } from "@/lib/publishing/tokens";
-import { getSettings, writeHeartbeat } from "@/lib/settings";
+import { listProjects } from "@/lib/projects";
+import { writeHeartbeat } from "@/lib/settings";
 import { KeepAwake } from "@/lib/worker/awake";
 import { createEngine } from "@/lib/worker/engine";
 
@@ -39,10 +40,11 @@ async function tick() {
 
     if (Date.now() - lastScan > BACKLOG_SCAN_MS) {
       lastScan = Date.now();
-      const settings = getSettings(db);
-      const r = await importBacklog(db, settings.contentDir);
-      if (r.added) logEvent(db, "info", "backlog", `${r.added} neue Shorts im Backlog gefunden`);
-      for (const e of r.errors) logEvent(db, "warn", "backlog", e);
+      for (const project of listProjects(db)) {
+        const r = await importBacklog(db, project);
+        if (r.added) logEvent(db, "info", "backlog", `[${project.name}] ${r.added} neue Shorts im Backlog gefunden`);
+        for (const e of r.errors) logEvent(db, "warn", "backlog", `[${project.name}] ${e}`);
+      }
       pruneEvents(db);
     }
 

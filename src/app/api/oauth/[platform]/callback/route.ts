@@ -4,6 +4,7 @@ import { PLATFORM_LABEL, upsertAccount } from "@/lib/accounts";
 import { getDb } from "@/lib/db/client";
 import { oauthStates } from "@/lib/db/schema";
 import { logEvent } from "@/lib/events";
+import { getProject } from "@/lib/projects";
 import { oauthProviders } from "@/lib/publishing/registry";
 import { getSettings } from "@/lib/settings";
 
@@ -42,16 +43,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ platform
   if (!row || Date.now() - row.createdAt.getTime() > 15 * 60_000) {
     return back({ fehler: `Anmeldung abgelaufen – bitte noch einmal auf „${label} verbinden“ klicken` });
   }
+  const project = row.projectId ? getProject(db, row.projectId) : undefined;
+  if (!project) return back({ fehler: "Das Projekt für diese Anmeldung gibt es nicht mehr" });
 
   try {
     const found = await provider.connect({ code, codeVerifier: row.codeVerifier, settings: getSettings(db) });
     if (!found.length) throw new Error("Kein passendes Konto gefunden");
     const names: string[] = [];
     for (const acc of found) {
-      const saved = await upsertAccount(db, { platform: provider.platform, ...acc });
+      const saved = await upsertAccount(db, { projectId: project.id, platform: provider.platform, ...acc });
       names.push(saved.name);
     }
-    const msg = `${label}: ${names.map((n) => `„${n}“`).join(", ")} verbunden`;
+    const msg = `${label}: ${names.map((n) => `„${n}“`).join(", ")} mit Projekt „${project.name}“ verbunden`;
     logEvent(db, "info", "konten", msg);
     return back({ ok: msg });
   } catch (err) {

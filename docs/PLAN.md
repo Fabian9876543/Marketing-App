@@ -2,6 +2,13 @@
 
 Stand: 06.11.2026 · **Phase 1 und 3 umgesetzt** (Grundgerüst, YouTube, Instagram, TikTok, LinkedIn) · Phase 2 wartet auf das Website-Repo von Fokuspilot
 
+## Update 07.11.2026: Mehrere Projekte
+
+Das Tool ist jetzt **projektneutral** („Marketing Studio“). Fokuspilot ist das erste Projekt; weitere wie die Behörden-App oder Corporate Health kommen einfach dazu.
+- Jedes Projekt hat einen eigenen Ordner (`backlog/`, `referenzen/`, `PROJEKT.md`), eigene Konten, Posting-Zeiten, Standard-Hashtags, ein Briefing und Referenzen. Referenzen sind Dateien, Links oder Notizen.
+- Für Phase 2 heißt das: Claude Code arbeitet im Projektordner und liest `PROJEKT.md` (Briefing plus Liste aller Referenzen). Statt einer festen `BRAND.md` je App gibt es das Briefing pro Projekt in der Oberfläche.
+- Die Entwickler-Apps bei Google, Meta, TikTok und LinkedIn richtest du nur einmal ein; sie gelten für alle Projekte.
+
 ## Ziel
 
 Ein Marketing-Tool, das lokal auf dem Mac läuft. Claude Code erstellt damit regelmäßig Kurzvideos für **Fokuspilot (KI-Telefonassistent)**. Nach deiner Freigabe veröffentlicht das Tool sie zeitgesteuert auf **Instagram Reels, TikTok, YouTube Shorts und LinkedIn**. Aus den Zahlen lernt es, was funktioniert.
