@@ -245,3 +245,76 @@ export type Post = typeof posts.$inferSelect;
 export type PostTarget = typeof postTargets.$inferSelect;
 export type Slot = typeof slots.$inferSelect;
 export type EventRow = typeof events.$inferSelect;
+
+/* ---------- Studio: Claude Code baut Shorts ---------- */
+
+/** Ein Chat im Studio (entspricht einer fortsetzbaren Claude-Code-Sitzung). */
+export const studioSessions = sqliteTable(
+  "studio_sessions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    /** UUID der Claude-Code-Sitzung (--session-id beim ersten, --resume bei weiteren Läufen) */
+    claudeSessionId: text("claude_session_id").notNull().unique(),
+    /** Claude hat die Sitzung angelegt (danach mit --resume fortsetzen) */
+    started: integer("started", { mode: "boolean" }).notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("studio_sessions_project").on(t.projectId)],
+);
+
+export const STUDIO_RUN_STATES = ["queued", "running", "done", "error", "cancelled"] as const;
+export type StudioRunState = (typeof STUDIO_RUN_STATES)[number];
+
+/** Ein Auftrag an Claude innerhalb eines Chats. Der Worker führt ihn aus. */
+export const studioRuns = sqliteTable(
+  "studio_runs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sessionId: integer("session_id")
+      .notNull()
+      .references(() => studioSessions.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    state: text("state", { enum: STUDIO_RUN_STATES }).notNull().default("queued"),
+    cancelRequested: integer("cancel_requested", { mode: "boolean" }).notNull().default(false),
+    pid: integer("pid"),
+    error: text("error"),
+    costUsd: real("cost_usd"),
+    durationMs: integer("duration_ms"),
+    /** Ordnernamen der Shorts, die dieser Lauf neu ins Backlog gelegt hat */
+    newShorts: text("new_shorts", { mode: "json" }).$type<string[]>().notNull().default([]),
+    startedAt: integer("started_at", { mode: "timestamp_ms" }),
+    endedAt: integer("ended_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("studio_runs_state").on(t.state), index("studio_runs_session").on(t.sessionId)],
+);
+
+export const STUDIO_MESSAGE_KINDS = ["user", "assistant", "tool", "tool_result", "result", "error", "info"] as const;
+export type StudioMessageKind = (typeof STUDIO_MESSAGE_KINDS)[number];
+
+/** Verlauf eines Chats: deine Nachrichten, Antworten von Claude, Werkzeugaufrufe, Ergebnisse. */
+export const studioMessages = sqliteTable(
+  "studio_messages",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    sessionId: integer("session_id")
+      .notNull()
+      .references(() => studioSessions.id, { onDelete: "cascade" }),
+    runId: integer("run_id"),
+    kind: text("kind", { enum: STUDIO_MESSAGE_KINDS }).notNull(),
+    text: text("text").notNull().default(""),
+    toolName: text("tool_name"),
+    isError: integer("is_error", { mode: "boolean" }).notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [index("studio_messages_session").on(t.sessionId)],
+);
+
+export type StudioSession = typeof studioSessions.$inferSelect;
+export type StudioRun = typeof studioRuns.$inferSelect;
+export type StudioMessage = typeof studioMessages.$inferSelect;

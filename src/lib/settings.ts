@@ -34,6 +34,14 @@ export const appSettingsSchema = z.object({
     .default({ mode: "draft" }),
   instagram: z.object({ shareToFeed: z.boolean().default(true) }).default({ shareToFeed: true }),
   linkedin: z.object({ visibility: z.enum(["PUBLIC", "CONNECTIONS"]).default("PUBLIC") }).default({ visibility: "PUBLIC" }),
+  studio: z
+    .object({
+      /** Modell für Claude Code („“ = Standard aus deiner Claude-Code-Einstellung) */
+      model: z.string().max(60).default(""),
+      /** Wie viele Studio-Aufträge gleichzeitig laufen dürfen */
+      maxParallel: z.number().int().min(1).max(4).default(2),
+    })
+    .default({ model: "", maxParallel: 2 }),
   /** Wird an die Caption gehängt, wenn ein Video KI-Inhalte enthält und die Plattform keine eigene Kennzeichnung per API hat. */
   aiDisclosure: z.string().max(200).default("Mit KI erstellt."),
 });

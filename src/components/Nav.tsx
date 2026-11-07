@@ -32,6 +32,7 @@ export function Nav({
     { href: "/kalender", label: "Kalender" },
     { href: "/warteschlange", label: "Warteschlange", badge: reviewCount },
     { href: "/backlog", label: "Backlog" },
+    { href: "/studio", label: "Studio" },
     { href: activeId ? `/projekte/${activeId}?tab=referenzen` : "/projekte", label: "Referenzen", match: "referenzen" },
     { href: "/konten", label: "Konten" },
     { href: projectHref, label: "Projekt", match: "projekt" },

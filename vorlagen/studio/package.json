@@ -1,0 +1,15 @@
+{
+  "name": "studio-vorlage",
+  "private": true,
+  "description": "Video-Vorlage für Shorts (Remotion). Wird vom Marketing Studio in jeden Projektordner kopiert.",
+  "scripts": {
+    "render": "remotion render src/index.ts Short",
+    "vorschau": "remotion studio src/index.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.538",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.538"
+  }
+}

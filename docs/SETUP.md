@@ -12,7 +12,7 @@ brew install node@22 pnpm ffmpeg
 ```
 
 Prüfen: `node -v` muss 22 oder höher zeigen.
-Claude Code brauchst du erst ab Phase 2 (Studio).
+Claude Code brauchst du für das Studio (Abschnitt „Studio: Claude Code baut Shorts“).
 
 ## 2. Code holen und einrichten
 
@@ -155,6 +155,35 @@ Manche Entwickler-Konsolen ändern ihre Regeln. Lehnt eine Plattform `http://loc
    ```
 2. Trage diese HTTPS-Adresse in der Entwickler-Konsole als Weiterleitung ein.
 3. Ergänze in der `.env`: `TIKTOK_REDIRECT_URI=https://deine-website.de/oauth/tiktok` (entsprechend `INSTAGRAM_…`, `LINKEDIN_…`, `YOUTUBE_REDIRECT_URI`).
+
+## Studio: Claude Code baut Shorts
+
+Im **Studio** gibst du Claude Code Aufträge wie „Mach einen neuen Short“ oder „Serie mit 3 Shorts“. Claude arbeitet im Projektordner, liest Briefing und Referenzen (`PROJEKT.md`) und rendert Videos mit der mitgelieferten Vorlage. Fertige Shorts legt es samt Texten ins Backlog. **Veröffentlicht wird nichts, bevor du freigibst.**
+
+**Voraussetzungen**
+- Claude Code ist installiert und angemeldet (Anleitung: https://docs.claude.com/claude-code). Einmal im Terminal `claude` starten und anmelden. Das Studio nutzt dein bestehendes Claude-Abo, keinen API-Key.
+- Der Worker läuft (`pnpm dev` oder `pnpm local:install`). Er führt die Aufträge aus, auch wenn du die Seite schließt.
+
+**Erste Schritte**
+1. Briefing ausfüllen und Referenzen hochladen (Logo, Screenshots, Bildschirmaufnahmen). Je mehr echtes Material, desto besser die Shorts.
+2. **Studio → Studio einrichten**. Das legt im Projektordner an:
+   - `studio/`: die Video-Vorlage (Remotion, React), anpassbar pro Projekt
+   - `CLAUDE.md`: die Arbeitsanweisung für Claude (Ablauf, Ausgabeformat, Regeln)
+   - `.claude/settings.json`: welche Befehle Claude ohne Rückfrage ausführen darf
+3. Erster Auftrag, am besten **„Vorlage an Marke anpassen“**. Claude übernimmt Farben, Logo und Schrift und rendert einen kurzen Markentest. Beim ersten Mal installiert es die Vorlage (`npm install`); Remotion lädt dabei einmalig einen Browser zum Rendern herunter (ca. 100 MB).
+4. Danach z. B. **„Neuen Short machen“** oder ein eigener Auftrag. Rückmeldungen gibst du im selben Chat („Mach den Hook kürzer“), Claude setzt die Sitzung fort.
+5. Fertige Shorts erscheinen im **Backlog**. Dort einplanen; oder Claude plant sie mit „Neue Shorts zur Freigabe einplanen“ ein, dann landen sie unter **Warteschlange → Zur Freigabe**.
+
+**Sicherheit**
+- Claude arbeitet nur im Projektordner. Ohne Rückfrage erlaubt sind Dateien lesen und schreiben, `npm install`, `npm run …`, `npx remotion …`, `ffmpeg`/`ffprobe`, `mkdir`, `cp` und `ls`.
+- Verboten sind Löschen (`rm`), `git push`, Downloads per `curl`/`wget`, `sudo` sowie Webseiten abrufen oder suchen. Alles andere wird automatisch abgelehnt, weil niemand nachfragen kann.
+- Die Zugangsdaten der App (Google, Meta, TikTok, LinkedIn) werden nicht an Claude weitergegeben.
+- Die eigenen Werkzeuge des Studios (MCP-Server „studio“) können Briefing und Backlog lesen, freie Zeiten nennen und Shorts **zur Freigabe** einplanen, aber nie veröffentlichen.
+
+**Gut zu wissen**
+- Modell und Anzahl gleichzeitiger Aufträge stellst du unter **Einstellungen → Studio** ein.
+- Willst du `CLAUDE.md` selbst pflegen, entferne die erste Zeile (Marker). Dann überschreibt das Studio die Datei nicht mehr.
+- Die Video-Vorlage nutzt Remotion. Für Einzelpersonen und Firmen bis 3 Mitarbeitende ist Remotion kostenlos, größere Firmen brauchen eine Lizenz (remotion.pro).
 
 ## 8. Dauerhaft im Hintergrund laufen lassen
 

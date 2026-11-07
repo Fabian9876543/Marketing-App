@@ -10,6 +10,7 @@ import { publishers } from "@/lib/publishing/registry";
 import { getAccessToken } from "@/lib/publishing/tokens";
 import { listProjects } from "@/lib/projects";
 import { writeHeartbeat } from "@/lib/settings";
+import { StudioQueue } from "@/lib/studio/runner";
 import { KeepAwake } from "@/lib/worker/awake";
 import { createEngine } from "@/lib/worker/engine";
 
@@ -27,6 +28,7 @@ const engine = createEngine({
   getAccessToken: (account) => getAccessToken(db, account),
   onBusy: () => awake.set(true),
 });
+const studio = new StudioQueue(db);
 const startedAt = Date.now();
 let running = false;
 let stopping = false;
@@ -50,7 +52,7 @@ async function tick() {
 
     const report = await engine.tick();
     const soon = report.nextDueAt && report.nextDueAt.getTime() - Date.now() < AWAKE_BEFORE_MS;
-    awake.set(Boolean(soon));
+    awake.set(Boolean(soon) || studio.active > 0);
   } catch (err) {
     logEvent(db, "error", "worker", `Unerwarteter Fehler: ${(err as Error).stack ?? err}`);
     awake.set(false);
@@ -72,5 +74,15 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 
 logEvent(db, "info", "worker", `Gestartet (PID ${process.pid})`);
 engine.recoverStale();
+studio.recover();
 void tick();
 setInterval(() => void tick(), TICK_MS);
+// Studio-Aufträge zügig starten; sie laufen nebenher (Claude Code rendert oft mehrere Minuten).
+setInterval(() => {
+  if (stopping) return;
+  try {
+    studio.tick();
+  } catch (err) {
+    logEvent(db, "error", "studio", `Studio: ${(err as Error).message}`);
+  }
+}, 2000);

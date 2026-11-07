@@ -34,6 +34,8 @@ import {
   updateProject,
 } from "@/lib/projects";
 import { addLinkReference, addNoteReference, deleteReference, isCategory, updateReference } from "@/lib/references";
+import { QUICK_PROMPTS, cancelSession, createSession, deleteSession, getSession, sendMessage } from "@/lib/studio/sessions";
+import { setupStudio } from "@/lib/studio/workspace";
 import { appSettingsSchema, getSettings, updateSettings } from "@/lib/settings";
 import { addSlot, listSlots, nextFreeSlot, removeSlot, toggleSlot } from "@/lib/slots";
 import { formatDateTime, fromLocalInput, isValidTimezone } from "@/lib/time";
@@ -350,6 +352,10 @@ export async function saveSettingsAction(form: FormData) {
       instagram: { shareToFeed: form.get("igShareToFeed") === "on" },
       linkedin: { visibility: form.get("liVisibility") ?? current.linkedin.visibility },
       aiDisclosure: String(form.get("aiDisclosure") ?? current.aiDisclosure).trim(),
+      studio: {
+        model: str(form, "studioModel"),
+        maxParallel: Number(form.get("studioMaxParallel") ?? current.studio.maxParallel),
+      },
     });
     if (!parsed.success) throw new Error(`Ungültige Eingabe: ${parsed.error.issues.map((i) => i.path.join(".")).join(", ")}`);
     updateSettings(db, parsed.data);
@@ -371,4 +377,53 @@ export async function disconnectAccountAction(form: FormData) {
     disconnectAccount(getDb(), num(form, "accountId"));
     return "Konto getrennt";
   });
+}
+
+/* ---------- Studio ---------- */
+
+export async function setupStudioAction(form: FormData) {
+  await attempt(form, "/studio", () => {
+    const project = formProject(form);
+    setupStudio(project);
+    return `Studio für „${project.name}“ eingerichtet: Vorlage in studio/, Anweisungen in CLAUDE.md`;
+  });
+}
+
+export async function startStudioAction(form: FormData) {
+  let target = "/studio";
+  let msg: { ok?: string; error?: string } = {};
+  try {
+    const project = formProject(form);
+    const quick = QUICK_PROMPTS.find((q) => q.key === str(form, "quick"));
+    const { session } = createSession(getDb(), project.id, quick?.prompt ?? str(form, "prompt"), quick?.label);
+    target = `/studio?chat=${session.id}`;
+  } catch (err) {
+    msg = { error: (err as Error).message };
+  }
+  finish(target, msg);
+}
+
+export async function sendStudioMessageAction(form: FormData) {
+  const sessionId = num(form, "sessionId");
+  await attempt(form, `/studio?chat=${sessionId}`, () => {
+    sendMessage(getDb(), sessionId, str(form, "prompt"));
+    return "";
+  });
+}
+
+export async function cancelStudioAction(form: FormData) {
+  const sessionId = num(form, "sessionId");
+  await attempt(form, `/studio?chat=${sessionId}`, () => (cancelSession(getDb(), sessionId) ? "Wird abgebrochen …" : "Es läuft gerade nichts"));
+}
+
+export async function deleteStudioSessionAction(form: FormData) {
+  let error: string | undefined;
+  try {
+    const db = getDb();
+    if (!getSession(db, num(form, "sessionId"))) throw new Error("Chat nicht gefunden");
+    deleteSession(db, num(form, "sessionId"));
+  } catch (err) {
+    error = (err as Error).message;
+  }
+  finish("/studio", error ? { error } : { ok: "Chat gelöscht" });
 }

@@ -9,7 +9,8 @@ import { dataDir, dbFile, ensureDir, legacyContentDir } from "../env";
 
 export type DB = BetterSQLite3Database<typeof schema>;
 
-const migrationsFolder = () => path.join(process.cwd(), "drizzle");
+/** Migrationen liegen im App-Ordner. Prozesse mit anderem Arbeitsordner (MCP-Server) setzen STUDIO_APP_DIR. */
+const migrationsFolder = () => path.join(process.env.STUDIO_APP_DIR || process.cwd(), "drizzle");
 
 /** Öffnet eine Datenbank und bringt das Schema auf den neuesten Stand. */
 export function openDb(file: string): DB {

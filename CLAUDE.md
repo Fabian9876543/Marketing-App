@@ -20,6 +20,10 @@ Der Nutzer spricht Deutsch. Oberfläche, Fehlermeldungen und Doku sind auf Deuts
   an Briefing oder Referenzen neu geschrieben (`writeBriefFile`) und ist die Grundlage für Phase 2.
 - Dateien werden nur per ID ausgeliefert (`/api/media/[id]`, `/api/referenzen/[id]`), nie per Pfad; Pfade bleiben im Projektordner.
 - Migration 0002 hat bestehende Daten in Projekt 1 „Fokuspilot“ übernommen; `adoptLegacyProject` setzt dessen Ordner.
+- Studio (Phase 2): `src/lib/studio/` – `runner.ts` startet `claude -p --output-format stream-json` im Projektordner (über den Worker,
+  `StudioQueue`), `workspace.ts` legt `studio/` (Vorlage aus `vorlagen/studio/`), `CLAUDE.md` und `.claude/settings.json` an,
+  `tools.ts` + `mcp/studio-server.ts` sind die MCP-Werkzeuge. Neue Claude-Optionen nur nutzen, wenn `claude --help` sie kennt (`claudeInfo`).
+  Tests nutzen `tests/fixtures/fake-claude.mjs` (CLAUDE_BIN). Agent-Posts haben `createdBy = agent` und `state = review`.
 - Seiten, die die DB lesen, rufen zuerst `await connection()` auf (sonst prerendert Next sie zur Build-Zeit).
 - Server-Aktionen in `src/app/actions.ts` geben Rückmeldung per Redirect mit `?ok=` oder `?fehler=`.
 - Zeiten werden in UTC gespeichert und in der Zeitzone aus den Einstellungen angezeigt (`src/lib/time.ts`, Luxon).

@@ -101,6 +101,26 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             selbst frei – auch wenn dein Mac aus ist.
           </p>
 
+          <h2 className="h2 border-t border-line pt-4">Studio (Claude Code)</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="studioModel">
+                Modell
+              </label>
+              <select id="studioModel" name="studioModel" defaultValue={s.studio.model} className="input">
+                <option value="">Standard (deine Claude-Code-Einstellung)</option>
+                <option value="opus">Opus – am gründlichsten</option>
+                <option value="sonnet">Sonnet – schneller</option>
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="studioParallel">
+                Gleichzeitige Aufträge
+              </label>
+              <input id="studioParallel" type="number" min={1} max={4} name="studioMaxParallel" defaultValue={s.studio.maxParallel} className="input" />
+            </div>
+          </div>
+
           <h2 className="h2 border-t border-line pt-4">Instagram, TikTok, LinkedIn</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

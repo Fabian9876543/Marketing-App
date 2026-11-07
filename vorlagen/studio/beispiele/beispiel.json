@@ -1,0 +1,16 @@
+{
+  "scenes": [
+    { "type": "hook", "text": "Hook in einer Zeile – die ersten 2 Sekunden entscheiden", "sub": "Untertitel optional" },
+    { "type": "text", "title": "Das Problem", "lines": ["Kurzer Satz 1", "Kurzer Satz 2", "Kurzer Satz 3"] },
+    {
+      "type": "dialog",
+      "title": "So klingt das",
+      "lines": [
+        { "who": "Kundin", "text": "Hallo, ich hätte gern einen Termin." },
+        { "who": "Assistent", "text": "Gern! Passt Ihnen Donnerstag um 10 Uhr?" },
+        { "who": "Kundin", "text": "Perfekt, danke!" }
+      ]
+    },
+    { "type": "cta", "text": "Handlungsaufforderung", "sub": "Ein kurzer Satz dazu", "url": "beispiel.de" }
+  ]
+}

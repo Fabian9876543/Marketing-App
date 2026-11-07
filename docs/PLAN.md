@@ -1,6 +1,6 @@
 # Plan: Fokuspilot Studio (Arbeitstitel)
 
-Stand: 06.11.2026 · **Phase 1 und 3 umgesetzt** (Grundgerüst, YouTube, Instagram, TikTok, LinkedIn) · Phase 2 wartet auf das Website-Repo von Fokuspilot
+Stand: 07.11.2026 · **Phase 1, 2 und 3 umgesetzt** (Grundgerüst, Studio mit Claude Code, YouTube, Instagram, TikTok, LinkedIn) · Nächstes: Phase 4 (Automation) und 5 (Analytics)
 
 ## Update 07.11.2026: Mehrere Projekte
 
@@ -99,7 +99,7 @@ Manche Freigaben dauern Wochen, deshalb früh beantragen.
 **Meilenstein:** Ein Testvideo erscheint zur geplanten Zeit auf YouTube.
 Getestet mit Unit-Tests, einem nachgebauten YouTube-Server und im Browser. Der echte Test mit deinem Kanal folgt, sobald das Google-Projekt eingerichtet ist (docs/SETUP.md).
 
-### Phase 2: Studio, in dem Claude Code die Shorts baut
+### Phase 2: Studio, in dem Claude Code die Shorts baut ✅ umgesetzt
 
 - Content-Ordner anlegen und Marke aus der Website einrichten (BRAND.md, Farben, Logo, Screens). **Braucht das Website-Repo.**
 - Remotion-Vorlagen für 2–3 Formate
@@ -109,6 +109,14 @@ Getestet mit Unit-Tests, einem nachgebauten YouTube-Server und im Browser. Der e
 - MCP-Server: Claude füllt das Backlog, sieht freie Slots und speichert Texte
 
 **Meilenstein:** Ein Prompt ergibt einen fertigen Short, der zur Freigabe in der Warteschlange liegt.
+
+Umgesetzt am 07.11.2026 (projektneutral, für jedes Projekt):
+- Studio-Seite mit Chats, Live-Verlauf, Schnellaktionen, Folgeaufträgen (Sitzung wird fortgesetzt) und Abbrechen.
+- Der Worker startet `claude -p` im Projektordner (stream-json); höchstens n Aufträge gleichzeitig, pro Chat nacheinander.
+- Video-Vorlage (Remotion) mit Szenen hook/text/bild/video/dialog/cta, Marke aus `studio/brand.json`. Im Test echt gerendert.
+- `CLAUDE.md` + `.claude/settings.json` im Projektordner: Ablauf, Ausgabeformat (`backlog/<datum>-<slug>/video.mp4 + meta.json`), Regeln, erlaubte Befehle.
+- MCP-Server „studio“: Briefing, Backlog, freie Slots, Konten, Backlog einlesen, zur Freigabe einplanen (nie veröffentlichen).
+- Untertitel per whisper.cpp folgen später; bis dahin schreibt die Vorlage den Text selbst ins Bild.
 
 ### Phase 3: Die anderen drei Kanäle ✅ umgesetzt
 
