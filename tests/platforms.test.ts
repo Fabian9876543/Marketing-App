@@ -302,7 +302,7 @@ describe("TikTok", () => {
     expect(challenge).toMatch(/^[0-9a-f]{64}$/);
     const db = testDb();
     const url = new URL(tiktokOAuth.authUrl({ state: "s", codeChallenge: challenge, settings: getSettings(db) }));
-    expect(url.searchParams.get("scope")).toBe("user.info.basic,video.upload");
+    expect(url.searchParams.get("scope")).toBe("user.info.basic,video.upload,video.list");
     expect(url.searchParams.get("code_challenge")).toBe(challenge);
     const direct = updateSettings(db, { tiktok: { mode: "direct_public" } });
     expect(new URL(tiktokOAuth.authUrl({ state: "s", codeChallenge: challenge, settings: direct })).searchParams.get("scope")).toContain("video.publish");

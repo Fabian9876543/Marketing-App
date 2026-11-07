@@ -4,9 +4,9 @@ import type { AppSettings } from "../../settings";
 import { readJson, type OAuthProvider } from "../oauth";
 import { PublishError } from "../types";
 
-/** Entwürfe brauchen video.upload, direkte Posts zusätzlich video.publish. */
+/** Entwürfe brauchen video.upload, direkte Posts zusätzlich video.publish, die Zahlen video.list. */
 export function tiktokScopes(settings: AppSettings): string[] {
-  const scopes = ["user.info.basic", "video.upload"];
+  const scopes = ["user.info.basic", "video.upload", "video.list"];
   if (settings.tiktok.mode !== "draft") scopes.push("video.publish");
   return scopes;
 }

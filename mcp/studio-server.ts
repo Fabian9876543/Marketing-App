@@ -10,7 +10,17 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { getDb } from "../src/lib/db/client";
 import { getProject } from "../src/lib/projects";
-import { accountsTool, backlogTool, briefingTool, freeSlotsTool, importTool, proposeTool } from "../src/lib/studio/tools";
+import {
+  accountsTool,
+  backlogTool,
+  briefingTool,
+  freeSlotsTool,
+  importTool,
+  learningsTool,
+  proposeLearningTool,
+  proposeTool,
+  statsTool,
+} from "../src/lib/studio/tools";
 
 const projectId = Number(process.env.STUDIO_PROJECT_ID);
 const db = getDb();
@@ -78,6 +88,37 @@ server.registerTool(
     },
   },
   async (args) => safe(() => proposeTool(db, project(), args))(),
+);
+
+server.registerTool(
+  "statistik",
+  {
+    title: "Zahlen der Posts",
+    description:
+      "Views, Likes, Kommentare und Shares aller Posts des Projekts (alle Plattformen) mit Bewertung gegen den Median des jeweiligen Kanals: stark, normal, schwach oder zu frisch. Bei eigenen Shorts steht der Ordnername im Backlog dabei.",
+    inputSchema: { tage: z.number().int().min(1).max(90).optional().describe("Zeitraum in Tagen (Standard 30, höchstens 90)") },
+  },
+  async ({ tage }) => safe(() => statsTool(db, project(), tage ?? 30))(),
+);
+
+server.registerTool(
+  "erkenntnisse",
+  { title: "Erkenntnisse", description: "Bestätigte, vorgeschlagene und abgelehnte Erkenntnisse aus den Zahlen." },
+  safe(() => learningsTool(db, project())),
+);
+
+server.registerTool(
+  "erkenntnis_vorschlagen",
+  {
+    title: "Erkenntnis vorschlagen",
+    description:
+      "Schlägt eine Erkenntnis aus den Zahlen vor – als konkrete Anweisung für künftige Shorts. Sie gilt erst, wenn der Mensch sie in der App bestätigt; dann steht sie in PROJEKT.md.",
+    inputSchema: {
+      text: z.string().min(5).max(300).describe("Anweisung für künftige Shorts, z. B. „Hook als Frage in den ersten 2 Sekunden“"),
+      begruendung: z.string().max(500).describe("Woran man es in den Zahlen sieht (welche Posts, welcher Faktor)"),
+    },
+  },
+  async (args) => safe(() => proposeLearningTool(db, project(), args))(),
 );
 
 await server.connect(new StdioServerTransport());

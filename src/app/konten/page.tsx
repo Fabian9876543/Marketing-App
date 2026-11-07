@@ -166,6 +166,8 @@ function AccountRow({ account: a, project }: { account: Account; project?: Proje
           )}
         </div>
         {a.status === "needs_reconnect" && <p className="mt-1 text-xs text-bad">{a.statusMessage}</p>}
+        {a.status === "active" && a.insightsError && <p className="mt-1 text-xs text-warn [overflow-wrap:anywhere]">Zahlen: {a.insightsError}</p>}
+        {a.status === "active" && !a.insightsError && a.insightsAt && <p className="mt-1 text-xs text-muted">Zahlen abgerufen {relative(a.insightsAt)}</p>}
       </div>
       {a.status === "active" ? <Badge tone={soon ? "warn" : "ok"}>{soon ? "Läuft bald ab" : "Aktiv"}</Badge> : <Badge tone="bad">Neu verbinden</Badge>}
       {a.platform !== "simulator" && (a.status === "needs_reconnect" || soon) && (

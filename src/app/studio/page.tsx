@@ -81,6 +81,7 @@ export default async function StudioPage({ searchParams }: { searchParams: SP })
                   <span className="mt-1 flex items-center gap-2 text-xs font-normal text-muted">
                     <RunBadge run={s.lastRun} />
                     {s.automationId && <Badge>Automation</Badge>}
+                    {s.analysis && <Badge tone="info">Wochenanalyse</Badge>}
                     {relative(s.updatedAt)}
                   </span>
                 </Link>
@@ -208,7 +209,7 @@ function ChatView({ session }: { session: SessionSummary }) {
   const last = sessionRuns(db, session.id).at(-1) ?? null;
   const run = last && { id: last.id, state: last.state, error: last.error, newShorts: last.newShorts, cancelRequested: last.cancelRequested };
   const busy = run?.state === "queued" || run?.state === "running";
-  const canBecomeRecipe = !fresh.automationId && sessionRuns(db, session.id).some((r) => r.state === "done");
+  const canBecomeRecipe = !fresh.automationId && !fresh.analysis && sessionRuns(db, session.id).some((r) => r.state === "done");
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">

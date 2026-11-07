@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type { DB } from "./db/client";
 import { automations, studioMessages, studioRuns, studioSessions, type Automation, type Project, type Slot } from "./db/schema";
 import { logEvent } from "./events";
+import { acceptedLearnings } from "./learnings";
 import { getProject } from "./projects";
 import { getSettings } from "./settings";
 import { WEEKDAY_SHORT, slotOccurrences } from "./slots";
@@ -142,7 +143,7 @@ export function recipeFromSession(db: DB, sessionId: number): { name: string; re
 }
 
 /** Auftragstext für einen automatischen Lauf. */
-export function runPrompt(a: Automation, project: Project, now: Date, tz: string): string {
+export function runPrompt(a: Automation, project: Project, now: Date, tz: string, learned: string[] = []): string {
   const date = now.toLocaleDateString("de-DE", { timeZone: tz, weekday: "long", day: "numeric", month: "long" });
   const n = a.shortsPerRun;
   return [
@@ -157,6 +158,9 @@ export function runPrompt(a: Automation, project: Project, now: Date, tz: string
     "# Rezept",
     "",
     a.recipe,
+    ...(learned.length
+      ? ["", "# Erkenntnisse aus den Zahlen", "", "Vom Menschen bestätigt – gehen dem Rezept vor, wenn sie sich widersprechen:", ...learned.map((t) => `- ${t}`)]
+      : []),
   ].join("\n");
 }
 
@@ -167,7 +171,8 @@ export function startAutomationRun(db: DB, a: Automation, now = new Date()) {
   if (automationBusy(db, a.id)) throw new AutomationError("Der letzte Lauf dieser Automation ist noch nicht fertig");
   const tz = getSettings(db).timezone;
   const label = now.toLocaleDateString("de-DE", { timeZone: tz, day: "2-digit", month: "2-digit" });
-  const created = createSession(db, project.id, runPrompt(a, project, now, tz), `${a.name} · ${label}`);
+  const learned = acceptedLearnings(db, project.id).map((l) => l.text);
+  const created = createSession(db, project.id, runPrompt(a, project, now, tz, learned), `${a.name} · ${label}`);
   db.update(studioSessions).set({ automationId: a.id }).where(eq(studioSessions.id, created.session.id)).run();
   db.update(automations).set({ lastRunAt: now }).where(eq(automations.id, a.id)).run();
   return created;

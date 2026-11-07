@@ -121,6 +121,37 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </div>
           </div>
 
+          <h2 className="h2 border-t border-line pt-4">Zahlen und Wochenanalyse</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className="label" htmlFor="anFetchEvery">
+                Zahlen abrufen alle … Stunden
+              </label>
+              <input id="anFetchEvery" type="number" min={1} max={48} name="anFetchEveryHours" defaultValue={s.analytics.fetchEveryHours} className="input" />
+            </div>
+            <div>
+              <label className="label" htmlFor="anWeekday">
+                Wochenanalyse am
+              </label>
+              <select id="anWeekday" name="anWeekday" defaultValue={String(s.analytics.weekday)} className="input">
+                {["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"].map((d, i) => (
+                  <option key={d} value={i + 1}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="anTime">
+                um
+              </label>
+              <input id="anTime" type="time" name="anTime" defaultValue={s.analytics.time} className="input" />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="anWeekly" defaultChecked={s.analytics.weekly} /> Jede Woche eine Analyse durch Claude (pro Projekt, nutzt dein Claude-Abo)
+          </label>
+
           <h2 className="h2 border-t border-line pt-4">Instagram, TikTok, LinkedIn</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

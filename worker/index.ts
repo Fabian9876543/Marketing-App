@@ -12,6 +12,8 @@ import { listProjects } from "@/lib/projects";
 import { writeHeartbeat } from "@/lib/settings";
 import { autoFillProject } from "@/lib/autoplan";
 import { runDueAutomations } from "@/lib/automation";
+import { runDueAnalyses } from "@/lib/analysis";
+import { refreshDueInsights } from "@/lib/analytics/store";
 import { StudioQueue } from "@/lib/studio/runner";
 import { KeepAwake } from "@/lib/worker/awake";
 import { createEngine } from "@/lib/worker/engine";
@@ -21,6 +23,7 @@ loadDotEnv();
 const TICK_MS = 15_000;
 const BACKLOG_SCAN_MS = 5 * 60_000;
 const AWAKE_BEFORE_MS = 10 * 60_000;
+const INSIGHTS_CHECK_MS = 60_000;
 
 const db = getDb();
 const awake = new KeepAwake();
@@ -35,6 +38,7 @@ const startedAt = Date.now();
 let running = false;
 let stopping = false;
 let lastScan = 0;
+let insightsRunning = false;
 
 async function tick() {
   if (running || stopping) return;
@@ -54,8 +58,9 @@ async function tick() {
       pruneEvents(db);
     }
 
-    // Fällige Automationen starten neue Studio-Aufträge
+    // Fällige Automationen und Wochenanalysen starten neue Studio-Aufträge
     runDueAutomations(db);
+    runDueAnalyses(db);
     const report = await engine.tick();
     const soon = report.nextDueAt && report.nextDueAt.getTime() - Date.now() < AWAKE_BEFORE_MS;
     awake.set(Boolean(soon) || studio.active > 0);
@@ -83,6 +88,23 @@ engine.recoverStale();
 studio.recover();
 void tick();
 setInterval(() => void tick(), TICK_MS);
+// Zahlen abrufen – eigene Schleife, damit langsame Plattform-APIs das Veröffentlichen nicht aufhalten
+async function insightsTick() {
+  if (insightsRunning || stopping) return;
+  insightsRunning = true;
+  try {
+    const results = await refreshDueInsights(db);
+    const fetched = results.filter((r) => !r.error).reduce((t, r) => t + r.items, 0);
+    if (results.length && fetched) logEvent(db, "info", "analytics", `Zahlen aktualisiert: ${fetched} Beiträge aus ${results.filter((r) => !r.error).length} Konten`);
+  } catch (err) {
+    logEvent(db, "error", "analytics", `Zahlen abrufen: ${(err as Error).message}`);
+  } finally {
+    insightsRunning = false;
+  }
+}
+setTimeout(() => void insightsTick(), 20_000);
+setInterval(() => void insightsTick(), INSIGHTS_CHECK_MS);
+
 // Studio-Aufträge zügig starten; sie laufen nebenher (Claude Code rendert oft mehrere Minuten).
 setInterval(() => {
   if (stopping) return;

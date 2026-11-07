@@ -3,6 +3,7 @@ import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { eq } from "drizzle-orm";
+import { listLearnings } from "@/lib/learnings";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { upsertAccount } from "@/lib/accounts";
 import { importBacklog } from "@/lib/backlog";
@@ -219,7 +220,22 @@ describe("Werkzeuge für Claude (MCP)", () => {
     const client = new Client({ name: "test", version: "1.0.0" });
     await client.connect(transport);
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(tools).toEqual(["backlog_einlesen", "backlog_liste", "freie_slots", "konten_liste", "projekt_briefing", "zur_freigabe_einplanen"]);
+    expect(tools).toEqual([
+      "backlog_einlesen",
+      "backlog_liste",
+      "erkenntnis_vorschlagen",
+      "erkenntnisse",
+      "freie_slots",
+      "konten_liste",
+      "projekt_briefing",
+      "statistik",
+      "zur_freigabe_einplanen",
+    ]);
+    const stats = await client.callTool({ name: "statistik", arguments: { tage: 7 } });
+    expect(JSON.stringify(stats.content)).toContain("Keine Zahlen");
+    const proposal = await client.callTool({ name: "erkenntnis_vorschlagen", arguments: { text: "Hook als Frage formulieren", begruendung: "Test" } });
+    expect(JSON.stringify(proposal.content)).toContain("Vorgeschlagen");
+    expect(listLearnings(db, p.id)).toMatchObject([{ text: "Hook als Frage formulieren", status: "proposed" }]);
     const brief = await client.callTool({ name: "projekt_briefing", arguments: {} });
     expect(JSON.stringify(brief.content)).toContain("Testzielgruppe");
     const bad = await client.callTool({ name: "zur_freigabe_einplanen", arguments: { slug: "nix" } });

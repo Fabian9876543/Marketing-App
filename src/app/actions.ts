@@ -45,6 +45,9 @@ import {
   updateAutomation,
 } from "@/lib/automation";
 import { projects } from "@/lib/db/schema";
+import { startAnalysis } from "@/lib/analysis";
+import { refreshDueInsights } from "@/lib/analytics/store";
+import { addManualLearning, decideLearning, removeLearning } from "@/lib/learnings";
 import { appSettingsSchema, getSettings, updateSettings } from "@/lib/settings";
 import { addSlot, listSlots, nextFreeSlot, removeSlot, toggleSlot } from "@/lib/slots";
 import { formatDateTime, fromLocalInput, isValidTimezone } from "@/lib/time";
@@ -365,6 +368,12 @@ export async function saveSettingsAction(form: FormData) {
         model: str(form, "studioModel"),
         maxParallel: Number(form.get("studioMaxParallel") ?? current.studio.maxParallel),
       },
+      analytics: {
+        fetchEveryHours: Number(form.get("anFetchEveryHours") ?? current.analytics.fetchEveryHours),
+        weekly: form.get("anWeekly") === "on",
+        weekday: Number(form.get("anWeekday") ?? current.analytics.weekday),
+        time: str(form, "anTime") || current.analytics.time,
+      },
     });
     if (!parsed.success) throw new Error(`Ungültige Eingabe: ${parsed.error.issues.map((i) => i.path.join(".")).join(", ")}`);
     updateSettings(db, parsed.data);
@@ -507,5 +516,56 @@ export async function updateAutoFillAction(form: FormData) {
     const days = Math.min(14, Math.max(1, Number(form.get("autoFillDays")) || 3));
     getDb().update(projects).set({ autoFill, autoFillDays: days }).where(eq(projects.id, project.id)).run();
     return autoFill ? `Freie Slots der nächsten ${days} Tage werden automatisch gefüllt (zur Freigabe)` : "Automatisches Füllen ausgeschaltet";
+  });
+}
+
+/* ---------- Zahlen und Erkenntnisse ---------- */
+
+export async function refreshInsightsAction(form: FormData) {
+  await attempt(form, "/zahlen", async () => {
+    const projectId = Number(form.get("projectId")) || undefined;
+    const results = await refreshDueInsights(getDb(), new Date(), { force: true, projectId });
+    if (!results.length) throw new Error("Kein aktives Konto verbunden");
+    const ok = results.filter((r) => !r.error);
+    const failed = results.filter((r) => r.error);
+    const items = ok.reduce((t, r) => t + r.items, 0);
+    return (
+      `Zahlen aktualisiert: ${items} Beiträge aus ${ok.length} ${ok.length === 1 ? "Konto" : "Konten"}` +
+      (failed.length ? ` · ${failed.length} ohne Zahlen (${failed.map((r) => r.account.name).join(", ")} – Hinweis bei Konten)` : "")
+    );
+  });
+}
+
+export async function startAnalysisAction(form: FormData) {
+  let target = backTo(form, "/zahlen");
+  let msg: { ok?: string; error?: string } = {};
+  try {
+    const { session } = startAnalysis(getDb(), formProject(form).id);
+    target = `/studio?chat=${session.id}`;
+  } catch (err) {
+    msg = { error: (err as Error).message };
+  }
+  finish(target, msg);
+}
+
+export async function decideLearningAction(form: FormData) {
+  await attempt(form, "/zahlen", () => {
+    const decision = form.get("decision") === "rejected" ? "rejected" : "accepted";
+    decideLearning(getDb(), num(form, "learningId"), decision, str(form, "text"));
+    return decision === "accepted" ? "Erkenntnis übernommen – steht jetzt in PROJEKT.md und gilt für neue Shorts" : "Erkenntnis abgelehnt";
+  });
+}
+
+export async function addLearningAction(form: FormData) {
+  await attempt(form, "/zahlen", () => {
+    addManualLearning(getDb(), formProject(form).id, str(form, "text"));
+    return "Erkenntnis hinzugefügt – steht jetzt in PROJEKT.md";
+  });
+}
+
+export async function removeLearningAction(form: FormData) {
+  await attempt(form, "/zahlen", () => {
+    removeLearning(getDb(), num(form, "learningId"));
+    return "Erkenntnis entfernt";
   });
 }

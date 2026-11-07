@@ -90,7 +90,7 @@ Bis dahin empfiehlt sich unter **Einstellungen → YouTube** die Sichtbarkeit **
 
 1. https://developers.facebook.com → **Meine Apps → App erstellen** → Anwendungsfall „Andere“ → Typ **Business**.
 2. Produkt **Facebook Login for Business** hinzufügen.
-   - Unter **Konfigurationen** eine neue Konfiguration anlegen: Zugriffstoken-Typ **Nutzer-Zugriffstoken**, Berechtigungen `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`, `business_management`.
+   - Unter **Konfigurationen** eine neue Konfiguration anlegen: Zugriffstoken-Typ **Nutzer-Zugriffstoken**, Berechtigungen `instagram_basic`, `instagram_content_publish`, `instagram_manage_insights` (für die Zahlen), `pages_show_list`, `pages_read_engagement`, `business_management`.
    - Die angezeigte **Konfigurations-ID** notieren.
    - Hintergrund: Nur mit Facebook Login for Business darf das Tool Reels direkt vom Mac hochladen (ohne öffentlichen Server).
 3. **Weiterleitung:** Solange die App im **Entwicklungsmodus** ist, erlaubt Meta `http://localhost` automatisch. Lass die App deshalb im Entwicklungsmodus. Für dein eigenes Konto reicht das, weil du als Admin der App eingetragen bist.
@@ -106,6 +106,7 @@ Hinweise:
 - Instagram erlaubt 100 Posts pro 24 Stunden über die API. Das Tool prüft das vor jedem Upload.
 - Für KI-Inhalte gibt es keine Kennzeichnung per API. Das Tool hängt deshalb den KI-Hinweis aus den Einstellungen an die Caption an.
 - Meta verlangt etwa alle 90 Tage eine erneute Anmeldung. Das Tool erinnert dich eine Woche vorher.
+- Hast du Instagram schon vor Phase 5 verbunden, fehlt die Berechtigung `instagram_manage_insights`: in der Konfiguration ergänzen und Instagram neu verbinden. Ohne sie zeigt das Tool nur Likes und Kommentare.
 
 ## 6. TikTok verbinden
 
@@ -113,7 +114,8 @@ Hinweise:
 2. Produkte hinzufügen:
    - **Login Kit**: Weiterleitungs-URI `http://localhost:4321/api/oauth/tiktok/callback`
    - **Content Posting API**: „Upload“ (Entwürfe) aktivieren; für direkte Posts zusätzlich „Direct Post“.
-3. Berechtigungen: `user.info.basic` und `video.upload` (für direkte Posts zusätzlich `video.publish`).
+   - **Display API**: für die Zahlen (Views, Likes, Kommentare, Shares deiner Videos).
+3. Berechtigungen: `user.info.basic`, `video.upload` und `video.list` (für direkte Posts zusätzlich `video.publish`).
 4. Unter **Sandbox** eine Sandbox anlegen und dein TikTok-Konto als Testnutzer eintragen. Bis zur Freigabe der App funktioniert nur das.
 5. Client Key und Client Secret in die `.env`:
    ```
@@ -127,7 +129,9 @@ Hinweise:
 - **Direkt, nur für mich**: zum Testen. Das Video wird privat veröffentlicht.
 - **Direkt öffentlich**: erst möglich, wenn TikTok deine App geprüft hat (Audit). Der KI-Hinweis wird dann automatisch gesetzt.
 
-Bei einem Wechsel von „Entwurf“ auf „direkt“ musst du TikTok neu verbinden, weil eine zusätzliche Berechtigung nötig ist.
+Bei einem Wechsel von „Entwurf“ auf „direkt“ musst du TikTok neu verbinden, weil eine zusätzliche Berechtigung nötig ist. Das gilt auch, wenn du TikTok vor Phase 5 verbunden hast: Für die Zahlen braucht es `video.list`.
+
+TikTok liefert Zahlen nur für öffentliche Videos. Entwürfe zählen erst, wenn du sie in der App veröffentlicht hast.
 
 ## 7. LinkedIn verbinden
 
@@ -144,6 +148,7 @@ Bei einem Wechsel von „Entwurf“ auf „direkt“ musst du TikTok neu verbind
 Hinweise:
 - Gepostet wird auf dein **persönliches Profil**. Für die Unternehmensseite muss LinkedIn die „Community Management API“ freigeben. Das beantragst du im selben Reiter **Produkte**; die Prüfung dauert oft Wochen.
 - LinkedIn verlangt **alle 60 Tage** eine neue Anmeldung. Das Tool erinnert dich eine Woche vorher in der Übersicht.
+- **Zahlen:** LinkedIn gibt Zahlen zu persönlichen Posts nur mit der Berechtigung `r_member_postAnalytics` heraus, und die gehört zur „Community Management API“ (Freigabe nötig, siehe oben). Bis dahin steht beim LinkedIn-Konto ein Hinweis, und unter **Zahlen** fehlen die LinkedIn-Posts.
 - Die API-Version steht in der `.env` als `LINKEDIN_API_VERSION` (Standard `202605`). LinkedIn unterstützt jede Version etwa ein Jahr. Meldet das Tool „Version wird nicht mehr unterstützt“, trage einen neueren Monat ein (z. B. `202611`).
 
 ## Wenn eine Plattform `localhost` als Weiterleitung ablehnt
@@ -199,6 +204,18 @@ Jeder Lauf startet frisch nach demselben Rezept. Claude prüft dabei das Backlog
 Ist dein Mac zur geplanten Zeit aus oder im Ruhezustand, holt der Worker den Lauf innerhalb von 6 Stunden nach, sonst wird er übersprungen. Für zuverlässige Läufe den Mac nicht zuklappen oder einen eigenen Mac mini bzw. Server nutzen.
 
 **Freie Zeiten automatisch füllen** (Projekt → Posting-Zeiten): Freie Posting-Zeiten der nächsten Tage (einstellbar, Standard 3) bekommen Shorts aus dem Backlog, die noch nie geplant waren, die ältesten zuerst. Auch diese landen nur **zur Freigabe**.
+
+## Zahlen: aus den Ergebnissen lernen
+
+Der Worker holt alle 6 Stunden (einstellbar) die Zahlen aller verbundenen Konten: Views, Likes, Kommentare, Shares, bei Instagram auch Reichweite und Speicherungen. Das gilt für die letzten 90 Tage, auch für Posts, die nicht über das Tool liefen. Mit **Zahlen → Jetzt aktualisieren** geht es sofort.
+
+- **Bewertung:** Jeder Beitrag wird mit dem **Median seines eigenen Kanals** verglichen. Ab dem 1,5-Fachen gilt er als **stark**, bis zum 0,5-Fachen als **schwach**. Beiträge jünger als 48 Stunden sind „zu frisch“. Ein Kanal braucht mindestens 3 ältere Beiträge für einen Median.
+  So lässt sich ein TikTok mit 10.000 Views fair mit einem LinkedIn-Post mit 400 Views vergleichen.
+- **Wochenanalyse:** Einmal pro Woche (Standard Montag 07:30, unter Einstellungen änderbar) startet pro Projekt ein Studio-Chat. Claude schaut sich die starken und schwachen Posts an und schlägt höchstens drei **Erkenntnisse** vor, z. B. „Hook als Frage in den ersten 2 Sekunden“. Die Analyse nutzt dein Claude-Abo; ohne mindestens 3 Beiträge mit Zahlen startet sie nicht.
+- **Erkenntnisse bestätigen:** Unter **Zahlen → Erkenntnisse** übernimmst du einen Vorschlag (Text vorher anpassbar) oder lehnst ihn ab. Abgelehnte schlägt Claude nicht erneut vor. Eigene Erkenntnisse kannst du direkt eintragen.
+- **Wirkung:** Bestätigte Erkenntnisse stehen in `PROJEKT.md` (Abschnitt „Erkenntnisse aus den Zahlen“) und im Auftrag jeder Automation. Claude berücksichtigt sie bei jedem neuen Short. Ohne deine Bestätigung ändert sich nichts.
+
+Der Test-Kanal erzeugt erfundene Zahlen für seine „veröffentlichten“ Posts. So kannst du die Seite ausprobieren, bevor echte Konten verbunden sind.
 
 ## 8. Dauerhaft im Hintergrund laufen lassen
 

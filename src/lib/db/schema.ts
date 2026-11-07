@@ -32,6 +32,8 @@ export const projects = sqliteTable("projects", {
   autoFill: integer("auto_fill", { mode: "boolean" }).notNull().default(false),
   /** Wie viele Tage im Voraus gefüllt wird */
   autoFillDays: integer("auto_fill_days").notNull().default(3),
+  /** Letzte Wochenanalyse durch Claude */
+  analysisAt: integer("analysis_at", { mode: "timestamp_ms" }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -94,6 +96,10 @@ export const accounts = sqliteTable(
     statusMessage: text("status_message"),
     /** Bis wann das Konto neu verbunden werden muss (z. B. LinkedIn nach 60 Tagen). null = unbegrenzt. */
     reconnectBy: integer("reconnect_by", { mode: "timestamp_ms" }),
+    /** Letzter erfolgreicher Abruf der Zahlen */
+    insightsAt: integer("insights_at", { mode: "timestamp_ms" }),
+    /** Warum keine Zahlen abgerufen werden konnten (stört das Veröffentlichen nicht) */
+    insightsError: text("insights_error"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -268,6 +274,8 @@ export const studioSessions = sqliteTable(
     started: integer("started", { mode: "boolean" }).notNull().default(false),
     /** Von dieser Automation gestartet (null = von Hand) */
     automationId: integer("automation_id").references(() => automations.id, { onDelete: "set null" }),
+    /** Wochenanalyse der Zahlen (statt Shorts bauen) */
+    analysis: integer("analysis", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -357,3 +365,70 @@ export const automations = sqliteTable(
 );
 
 export type Automation = typeof automations.$inferSelect;
+
+/* ---------- Analytics (Phase 5) ---------- */
+
+/** Ein Beitrag auf einer Plattform – auch solche, die nicht über die App veröffentlicht wurden. */
+export const mediaItems = sqliteTable(
+  "media_items",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    externalId: text("external_id").notNull(),
+    title: text("title").notNull().default(""),
+    url: text("url"),
+    publishedAt: integer("published_at", { mode: "timestamp_ms" }).notNull(),
+    durationSec: real("duration_sec"),
+    views: integer("views"),
+    likes: integer("likes"),
+    comments: integer("comments"),
+    shares: integer("shares"),
+    saves: integer("saves"),
+    reach: integer("reach"),
+    /** Über die App veröffentlicht: Verknüpfung zum Ziel (und damit zum Short) */
+    targetId: integer("target_id").references(() => postTargets.id, { onDelete: "set null" }),
+    fetchedAt: integer("fetched_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [uniqueIndex("media_items_account_external").on(t.accountId, t.externalId), index("media_items_published").on(t.publishedAt)],
+);
+
+/** Verlauf der Zahlen (höchstens ein Eintrag pro Beitrag und Stunde). */
+export const metricSnapshots = sqliteTable(
+  "metric_snapshots",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    mediaId: integer("media_id")
+      .notNull()
+      .references(() => mediaItems.id, { onDelete: "cascade" }),
+    at: integer("at", { mode: "timestamp_ms" }).notNull(),
+    views: integer("views"),
+    likes: integer("likes"),
+    comments: integer("comments"),
+    shares: integer("shares"),
+  },
+  (t) => [index("metric_snapshots_media").on(t.mediaId, t.at)],
+);
+
+/** Erkenntnisse aus den Zahlen: Claude schlägt vor, du entscheidest, was gilt. */
+export const learnings = sqliteTable(
+  "learnings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    projectId: integer("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    /** Begründung aus den Zahlen (z. B. „3 der 4 stärksten Posts …“) */
+    reason: text("reason").notNull().default(""),
+    status: text("status", { enum: ["proposed", "accepted", "rejected"] }).notNull().default("proposed"),
+    source: text("source", { enum: ["analysis", "manual"] }).notNull().default("analysis"),
+    decidedAt: integer("decided_at", { mode: "timestamp_ms" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("learnings_project").on(t.projectId)],
+);
+
+export type MediaItem = typeof mediaItems.$inferSelect;
+export type Learning = typeof learnings.$inferSelect;

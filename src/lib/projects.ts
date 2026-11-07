@@ -6,6 +6,7 @@ import type { DB } from "./db/client";
 import {
   accounts,
   contents,
+  learnings,
   posts,
   postTargets,
   projectReferences,
@@ -237,6 +238,18 @@ export function writeBriefFile(db: DB, id: number): string {
     section("Handlungsaufforderung", b.cta),
   );
   if (p.defaultHashtags.length) lines.push(`## Standard-Hashtags\n\n${p.defaultHashtags.join(" ")}\n`);
+
+  const known = db
+    .select()
+    .from(learnings)
+    .where(and(eq(learnings.projectId, id), eq(learnings.status, "accepted")))
+    .orderBy(asc(learnings.id))
+    .all();
+  if (known.length) {
+    lines.push("## Erkenntnisse aus den Zahlen\n", "Bestätigt aus der Auswertung bisheriger Posts – gelten für jeden neuen Short:\n");
+    for (const l of known) lines.push(`- ${l.text}`);
+    lines.push("");
+  }
 
   if (refs.length) {
     lines.push("## Referenzen\n");

@@ -2,7 +2,7 @@
 
 Lokales Marketing-Tool für **beliebig viele Projekte** – Apps, Marken, Kunden. Es plant Shorts, holt deine Freigabe ein und veröffentlicht sie pünktlich auf YouTube, Instagram, TikTok und LinkedIn. Alles läuft auf deinem Mac, ohne Cloud. Zugangsdaten liegen verschlüsselt in der macOS-Keychain.
 
-**Stand:** Projekte mit Referenzen, Studio (Claude Code baut Shorts), Automationen, YouTube, Instagram, TikTok und LinkedIn. Gesamtplan: [docs/PLAN.md](docs/PLAN.md) · Einrichtung: [docs/SETUP.md](docs/SETUP.md)
+**Stand:** Projekte mit Referenzen, Studio (Claude Code baut Shorts), Automationen, Zahlen und Lernen, YouTube, Instagram, TikTok und LinkedIn. Gesamtplan: [docs/PLAN.md](docs/PLAN.md) · Einrichtung: [docs/SETUP.md](docs/SETUP.md)
 
 ## Was schon geht
 - **Projekte:** Jedes Projekt hat einen eigenen Ordner, eigene Konten, eigene Posting-Zeiten, Standard-Hashtags und eine eigene Farbe. Oben in der Seitenleiste wechselst du das aktive Projekt; mit „Alle Projekte“ siehst du Übersicht, Kalender und Warteschlange über alle Projekte hinweg.
@@ -12,6 +12,7 @@ Lokales Marketing-Tool für **beliebig viele Projekte** – Apps, Marken, Kunden
   - Alles landet zusammen in `PROJEKT.md` im Projektordner, der Grundlage für Claude Code in Phase 2.
 - **Studio:** Claude Code baut Shorts per Auftrag oder Schnellaktion, live im Chat mitverfolgbar. Grundlage sind Briefing und Referenzen; gerendert wird mit der mitgelieferten Remotion-Vorlage. Die fertigen Shorts samt Texten landen im Backlog, nichts geht ohne Freigabe online.
 - **Automationen:** Aus einem gelungenen Studio-Chat wird ein Rezept, nach dem Claude zu festen Zeiten neue Shorts baut, jedes Mal mit neuem Thema. Neue Shorts und freie Posting-Zeiten werden automatisch zur Freigabe eingeplant.
+- **Zahlen und Lernen:** Der Worker holt die Zahlen aller Konten, auch für Posts, die nicht über das Tool liefen. Jeder Beitrag wird mit dem Median seines Kanals verglichen (stark/normal/schwach). Einmal pro Woche schlägt Claude Erkenntnisse vor. Was du bestätigst, landet in `PROJEKT.md` und gilt für jeden neuen Short.
 - **Backlog:** ein Ordner pro Short (`video.mp4` + optional `meta.json`) oder Upload im Browser. Dauer und Format werden geprüft.
 - **Planen:** Posting-Zeiten (Slots), „nächster freier Slot“ oder feste Zeit. Kalender als Woche oder Monat.
 - **Freigabe:** Warteschlange mit „Freigeben“, „Alle freigeben“, „Verschieben“ und „Absagen“. Nichts geht ohne Freigabe online.

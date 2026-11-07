@@ -22,7 +22,28 @@ out({ type: "system", subtype: "init", session_id: sid, model: "test-modell", to
 out({ type: "assistant", message: { content: [{ type: "text", text: `Verstanden: ${prompt.slice(0, 40)}` }] } });
 if (/langsam/.test(prompt)) await sleep(10_000);
 
-if (/render/i.test(prompt)) {
+if (/^Wochenanalyse/.test(prompt)) {
+  // Wie die echte CLI: Werkzeuge des MCP-Servers „studio“ aus --mcp-config aufrufen
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+  const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
+  const cfg = JSON.parse(fs.readFileSync(args[args.indexOf("--mcp-config") + 1], "utf8")).mcpServers.studio;
+  const client = new Client({ name: "fake-claude", version: "1.0.0" });
+  await client.connect(new StdioClientTransport({ command: cfg.command, args: cfg.args, env: { ...process.env, ...cfg.env }, cwd: process.cwd() }));
+  let n = 0;
+  const call = async (name, input) => {
+    const id = `a${++n}`;
+    out({ type: "assistant", message: { content: [{ type: "tool_use", id, name: `mcp__studio__${name}`, input }] } });
+    const r = await client.callTool({ name, arguments: input });
+    out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content: r.content, is_error: Boolean(r.isError) }] } });
+    return r.content.map((c) => c.text).join("\n");
+  };
+  const stats = await call("statistik", { tage: 90 });
+  await call("erkenntnisse", {});
+  await call("erkenntnis_vorschlagen", { text: "Hook als Frage in den ersten 2 Sekunden", begruendung: "Die beiden stärksten Posts beginnen mit einer Frage." });
+  await client.close();
+  const strong = (stats.match(/stark ×/g) ?? []).length;
+  out({ type: "assistant", message: { content: [{ type: "text", text: `Wochenanalyse: ${strong} starke Posts. Vorschlag: Hook als Frage. Bitte in der App bestätigen.` }] } });
+} else if (/render/i.test(prompt)) {
   const slug = `2026-11-07-test-short-${crypto.randomBytes(2).toString("hex")}`;
   out({ type: "assistant", message: { content: [{ type: "tool_use", id: "t1", name: "Bash", input: { command: `cd studio && npx remotion render src/index.ts Short ../backlog/${slug}/video.mp4` } }] } });
   const dir = path.join(process.cwd(), "backlog", slug);

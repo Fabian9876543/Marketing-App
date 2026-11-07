@@ -34,6 +34,17 @@ export const appSettingsSchema = z.object({
     .default({ mode: "draft" }),
   instagram: z.object({ shareToFeed: z.boolean().default(true) }).default({ shareToFeed: true }),
   linkedin: z.object({ visibility: z.enum(["PUBLIC", "CONNECTIONS"]).default("PUBLIC") }).default({ visibility: "PUBLIC" }),
+  analytics: z
+    .object({
+      /** Alle wie viele Stunden die Zahlen abgerufen werden */
+      fetchEveryHours: z.number().int().min(1).max(48).default(6),
+      /** Wochenanalyse durch Claude */
+      weekly: z.boolean().default(true),
+      /** 1 = Montag … 7 = Sonntag */
+      weekday: z.number().int().min(1).max(7).default(1),
+      time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default("07:30"),
+    })
+    .default({ fetchEveryHours: 6, weekly: true, weekday: 1, time: "07:30" }),
   studio: z
     .object({
       /** Modell für Claude Code („“ = Standard aus deiner Claude-Code-Einstellung) */

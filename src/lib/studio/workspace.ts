@@ -151,6 +151,11 @@ Jeder Short ist ein eigener Ordner: \`backlog/<JJJJ-MM-TT>-<kurzer-slug>/\` mit
 - Löschen ist nicht erlaubt. Alte Versionen eines Shorts einfach überschreiben.
 - Antworte auf Deutsch und kurz: was du gemacht hast, welche Shorts (Ordner) entstanden sind, was offen ist.
 
+## Aus den Zahlen lernen
+- Der Abschnitt „Erkenntnisse aus den Zahlen“ in \`PROJEKT.md\` ist vom Menschen bestätigt und gilt für jeden neuen Short.
+- Mit \`statistik\` siehst du, welche Posts im Vergleich zum Kanal stark oder schwach liefen – nutze das bei der Themenwahl.
+- Neue Erkenntnisse nur mit \`erkenntnis_vorschlagen\` vorschlagen. Sie gelten erst nach Bestätigung in der App.
+
 ## Werkzeuge (MCP-Server „studio“)
 - \`projekt_briefing\` – Briefing und Referenzen
 - \`backlog_liste\` – vorhandene Shorts mit Status (doppelte Themen vermeiden)
@@ -158,5 +163,8 @@ Jeder Short ist ein eigener Ordner: \`backlog/<JJJJ-MM-TT>-<kurzer-slug>/\` mit
 - \`freie_slots\` – nächste freie Posting-Zeiten
 - \`konten_liste\` – verbundene Plattformen
 - \`zur_freigabe_einplanen\` – Short zur Freigabe vorschlagen (nie direkt online)
+- \`statistik\` – Zahlen der Posts mit Bewertung gegen den Median des Kanals
+- \`erkenntnisse\` – bestätigte, vorgeschlagene und abgelehnte Erkenntnisse
+- \`erkenntnis_vorschlagen\` – neue Erkenntnis zur Bestätigung vorschlagen
 `;
 }

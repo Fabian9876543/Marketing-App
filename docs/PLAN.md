@@ -1,6 +1,6 @@
 # Plan: Fokuspilot Studio (Arbeitstitel)
 
-Stand: 07.11.2026 · **Phase 1–4 umgesetzt** (Grundgerüst, Studio mit Claude Code, YouTube, Instagram, TikTok, LinkedIn, Automationen) · Nächstes: Phase 5 (Analytics)
+Stand: 07.11.2026 · **Phase 1–5 umgesetzt** (Grundgerüst, Studio mit Claude Code, YouTube, Instagram, TikTok, LinkedIn, Automationen, Analytics und Lernen) · Nächstes: echter Test mit deinen Konten, danach die optionalen Punkte
 
 ## Update 07.11.2026: Mehrere Projekte
 
@@ -138,13 +138,25 @@ Umgesetzt am 07.11.2026:
 - Der Worker startet fällige Läufe als frische Studio-Chats (Wochentage, Uhrzeit, 1–5 Shorts pro Lauf). Verpasste Läufe holt er innerhalb von 6 Stunden nach, ältere überspringt er.
 - Nach dem Lauf plant er neue Shorts optional in freie Slots ein, zur Freigabe.
 - Pro Projekt lassen sich freie Zeiten der nächsten n Tage mit ungeplanten Backlog-Shorts füllen, zur Freigabe.
-- Lernen aus den Zahlen (Phase 5) fließt später in die Rezepte ein.
+- Bestätigte Erkenntnisse aus Phase 5 stehen im Auftrag jedes Laufs.
 
-### Phase 5: Analytics und Lernen
+### Phase 5: Analytics und Lernen ✅ umgesetzt
 
 - Zahlen pro Post (Views, Likes, Kommentare, Shares) von allen vier Plattformen, auch für Posts, die nicht über das Tool liefen
 - Bewertung gegen den Median des eigenen Kanals
-- Wöchentliche Analyse durch Claude. Die Erkenntnisse kommen nach deiner Bestätigung in `learnings.md` und fließen in neue Shorts ein.
+- Wöchentliche Analyse durch Claude. Die Erkenntnisse kommen nach deiner Bestätigung in `PROJEKT.md` (statt einer eigenen `learnings.md`) und fließen in neue Shorts ein.
+
+Umgesetzt am 07.11.2026:
+- Der Worker holt alle 6 Stunden (einstellbar) die Zahlen der letzten 90 Tage:
+  - YouTube: Data API, Uploads-Playlist plus Statistik.
+  - Instagram: Graph API, Likes und Kommentare plus Insights mit `instagram_manage_insights`.
+  - TikTok: Display API mit `video.list`.
+  - Ein Verlaufspunkt pro Stunde. Eigene Posts werden über die externe ID erkannt und dem Short im Backlog zugeordnet.
+- LinkedIn: Zahlen zu persönlichen Posts erst nach Freigabe der Community Management API (`r_member_postAnalytics`). Bis dahin zeigt das Konto einen Hinweis.
+- Bewertung: Views im Verhältnis zum Median des eigenen Kanals (90 Tage, nur Beiträge älter als 48 Stunden, mindestens 3). Stark ab ×1,5, schwach bis ×0,5.
+- Seite „Zahlen“ mit Zeitraum 7/30/90 Tage: Kennzahlen mit Veränderung zum Vorzeitraum, Views nach Plattform, stärkste Beiträge, beste Uhrzeiten, alle Beiträge mit Bewertung.
+- Wochenanalyse als Studio-Chat (Wochentag und Uhrzeit einstellbar, verpasste bis zu einem Tag nachgeholt, auch von Hand startbar). Claude nutzt die neuen Werkzeuge `statistik`, `erkenntnisse` und `erkenntnis_vorschlagen`.
+- Erkenntnisse: Vorschläge übernehmen (Text änderbar), ablehnen (wird nicht erneut vorgeschlagen) oder eigene eintragen. Bestätigte stehen in `PROJEKT.md` und im Auftrag jeder Automation.
 
 ### Später (optional)
 

@@ -6,6 +6,8 @@ import { importBacklog } from "../backlog";
 import type { DB } from "../db/client";
 import { contents, PLATFORMS, type Platform, type Project } from "../db/schema";
 import { describePlan, planIntoNextSlot } from "../autoplan";
+import { statsText } from "../analytics/stats";
+import { listLearnings, proposeLearning } from "../learnings";
 import { contentUsage, takenTimes } from "../posts";
 import { getSettings } from "../settings";
 import { listSlots, slotOccurrences } from "../slots";
@@ -86,4 +88,35 @@ export async function proposeTool(
   }
   const tz = getSettings(db).timezone;
   return `„${content.title}“ ist zur Freigabe eingeplant für ${describePlan(r, tz)}. Veröffentlicht wird erst nach Freigabe in der App.`;
+}
+
+/* ---------- Zahlen und Erkenntnisse (Phase 5) ---------- */
+
+export function statsTool(db: DB, project: Project, days = 30): string {
+  return statsText(db, project.id, days, getSettings(db).timezone);
+}
+
+export function learningsTool(db: DB, project: Project): string {
+  const all = listLearnings(db, project.id);
+  if (!all.length) return "Noch keine Erkenntnisse.";
+  const group = (status: string, title: string) => {
+    const list = all.filter((l) => l.status === status);
+    return list.length ? [`${title}:`, ...list.map((l) => `- ${l.text}${l.reason ? ` (Begründung: ${l.reason})` : ""}`)].join("\n") : "";
+  };
+  return [
+    group("accepted", "Bestätigt – gelten für jeden neuen Short"),
+    group("proposed", "Vorgeschlagen – wartet auf Bestätigung"),
+    group("rejected", "Abgelehnt – nicht erneut vorschlagen"),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** Vorschlag – gilt erst, wenn der Mensch ihn in der App bestätigt. */
+export function proposeLearningTool(db: DB, project: Project, input: { text: string; begruendung: string }): string {
+  const rejected = listLearnings(db, project.id, ["rejected"]).some((l) => l.text.toLowerCase() === input.text.trim().toLowerCase());
+  if (rejected) return "Diese Erkenntnis wurde schon abgelehnt – bitte nicht erneut vorschlagen.";
+  const l = proposeLearning(db, project.id, input.text, input.begruendung);
+  if (!l) return "Gibt es schon (bestätigt oder vorgeschlagen).";
+  return `Vorgeschlagen: „${l.text}“. Sie gilt erst, wenn der Mensch sie unter „Zahlen“ in der App bestätigt.`;
 }
