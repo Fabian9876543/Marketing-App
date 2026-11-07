@@ -5,12 +5,29 @@ Deine Secrets trägst du nur in die `.env` ein, niemals in einen Chat.
 
 ## 1. Werkzeuge installieren (einmalig)
 
-Im Terminal, mit [Homebrew](https://brew.sh):
+Terminal öffnen (⌘ + Leertaste → „Terminal“). Falls `brew` noch fehlt („command not found: brew“), zuerst [Homebrew](https://brew.sh) installieren:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Das fragt nach deinem Mac-Passwort (beim Tippen erscheinen keine Zeichen) und installiert eventuell die Xcode-Befehlszeilentools; das dauert ein paar Minuten.
+Auf Macs mit Apple-Chip (M1 und neuer) danach `brew` dauerhaft bekannt machen (zeigt der Installer auch unter „Next steps“ an):
+
+```bash
+echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
+eval "$(/opt/homebrew/bin/brew shellenv)"
+```
+
+Dann die Werkzeuge:
 
 ```bash
 brew install node@22 pnpm ffmpeg
+echo 'export PATH="$(brew --prefix node@22)/bin:$PATH"' >> ~/.zprofile
+export PATH="$(brew --prefix node@22)/bin:$PATH"
 ```
 
+`node@22` legt Homebrew nicht automatisch in den Suchpfad, deshalb die beiden `PATH`-Zeilen.
 Prüfen: `node -v` muss 22 oder höher zeigen.
 Claude Code brauchst du für das Studio (Abschnitt „Studio: Claude Code baut Shorts“).
 
