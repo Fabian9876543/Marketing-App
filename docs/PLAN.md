@@ -158,6 +158,13 @@ Umgesetzt am 07.11.2026:
 - Wochenanalyse als Studio-Chat (Wochentag und Uhrzeit einstellbar, verpasste bis zu einem Tag nachgeholt, auch von Hand startbar). Claude nutzt die neuen Werkzeuge `statistik`, `erkenntnisse` und `erkenntnis_vorschlagen`.
 - Erkenntnisse: Vorschläge übernehmen (Text änderbar), ablehnen (wird nicht erneut vorgeschlagen) oder eigene eintragen. Bestätigte stehen in `PROJEKT.md` und im Auftrag jeder Automation.
 
+### Ergänzung: Stimmen mit ElevenLabs ✅ umgesetzt (08.11.2026)
+
+- API-Schlüssel unter Einstellungen (verschlüsselt, mit Verbrauchsanzeige), Modell wählbar.
+- Pro Projekt eine Hauptstimme und eine zweite Stimme fürs Gegenüber im Dialog. Beide stehen auch in `PROJEKT.md`.
+- Studio-Werkzeuge `stimmen_liste` und `stimme_erzeugen`: Die MP3 kommt mit Zeitstempeln je Wort nach `studio/public/stimme/`. Den Schlüssel sieht Claude nie.
+- Video-Vorlage Version 2: `voice` je Szene, `voice` und `at` je Dialogzeile, leisere Musik bei Sprecher. Bestehende Projekte werden automatisch aktualisiert; angepasste Vorlagen bekommen eine `.neu`-Fassung zum Übernehmen.
+
 ### Später (optional)
 
 LinkedIn-Karussells (PDF), Antwortvorschläge für Kommentare, Mac automatisch aufwecken, Browser-Hilfe für öffentliche TikTok-Posts, weitere Projekte.

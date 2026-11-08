@@ -7,6 +7,8 @@ import type { DB } from "../db/client";
 import { contents, PLATFORMS, type Platform, type Project } from "../db/schema";
 import { describePlan, planIntoNextSlot } from "../autoplan";
 import { statsText } from "../analytics/stats";
+import { probeVideo } from "../media";
+import { describeVoice, getElevenLabsKey, listVoices, synthesize, VoiceError, type Voice } from "../voice/elevenlabs";
 import { listLearnings, proposeLearning } from "../learnings";
 import { contentUsage, takenTimes } from "../posts";
 import { getSettings } from "../settings";
@@ -119,4 +121,93 @@ export function proposeLearningTool(db: DB, project: Project, input: { text: str
   const l = proposeLearning(db, project.id, input.text, input.begruendung);
   if (!l) return "Gibt es schon (bestätigt oder vorgeschlagen).";
   return `Vorgeschlagen: „${l.text}“. Sie gilt erst, wenn der Mensch sie unter „Zahlen“ in der App bestätigt.`;
+}
+
+/* ---------- Stimmen (ElevenLabs) ---------- */
+
+const NO_KEY = "Keine Stimmen eingerichtet: In der App unter Einstellungen → Stimmen einen ElevenLabs-API-Schlüssel hinterlegen. Bis dahin Shorts ohne Sprecher bauen.";
+
+export async function voicesTool(db: DB, project: Project): Promise<string> {
+  const key = await getElevenLabsKey(db);
+  if (!key) return NO_KEY;
+  const voices = await listVoices(key);
+  const { main, second } = project.voices;
+  const lines = [
+    `Hauptstimme des Projekts (Erzähler, Assistent): ${main ? `${main.name} (${main.id})` : "nicht gewählt – Projekt → Einstellungen → Stimmen"}`,
+    `Zweite Stimme (Gegenüber im Dialog, z. B. Anrufer): ${second ? `${second.name} (${second.id})` : "nicht gewählt"}`,
+    "",
+    `Alle Stimmen im ElevenLabs-Konto (${voices.length}):`,
+    ...voices.slice(0, 60).map((v) => `- ${v.name} (${v.id})${describeVoice(v) ? ` – ${describeVoice(v)}` : ""}`),
+  ];
+  if (voices.length > 60) lines.push(`… und ${voices.length - 60} weitere`);
+  return lines.join("\n");
+}
+
+/** Dateiname ohne Pfad und Sonderzeichen („../x y“ → „x-y“). */
+export function voiceFileName(name: string | undefined): string {
+  const base = (name ?? "")
+    .toLowerCase()
+    .replace(/\.mp3$/, "")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+  return base || `stimme-${Date.now()}`;
+}
+
+async function resolveVoice(key: string, project: Project, wanted: string | undefined): Promise<{ id: string; name: string }> {
+  const w = (wanted ?? "haupt").trim();
+  if (w === "haupt" || w === "") {
+    if (!project.voices.main) throw new VoiceError("Keine Hauptstimme gewählt (Projekt → Einstellungen → Stimmen). Gib eine Stimme aus stimmen_liste an.");
+    return project.voices.main;
+  }
+  if (w === "zweit") {
+    if (!project.voices.second) throw new VoiceError("Keine zweite Stimme gewählt (Projekt → Einstellungen → Stimmen). Gib eine Stimme aus stimmen_liste an.");
+    return project.voices.second;
+  }
+  const voices: Voice[] = await listVoices(key);
+  const v = voices.find((x) => x.id === w) ?? voices.find((x) => x.name.toLowerCase() === w.toLowerCase());
+  if (!v) throw new VoiceError(`Stimme „${w}“ nicht gefunden. Nimm „haupt“, „zweit“ oder eine ID aus stimmen_liste.`);
+  return { id: v.id, name: v.name };
+}
+
+const sec = (n: number) => n.toFixed(2).replace(".", ",");
+
+/** Sprechertext erzeugen und als MP3 in studio/public/stimme/ ablegen. */
+export async function speakTool(
+  db: DB,
+  project: Project,
+  input: { text: string; datei: string; stimme?: string; tempo?: number },
+): Promise<string> {
+  const key = await getElevenLabsKey(db);
+  if (!key) throw new VoiceError(NO_KEY);
+  const voice = await resolveVoice(key, project, input.stimme);
+  const model = getSettings(db).voice.model;
+  const speech = await synthesize(key, { voiceId: voice.id, text: input.text, modelId: model, speed: input.tempo });
+
+  const name = voiceFileName(input.datei);
+  const dir = path.join(project.folder, "studio", "public", "stimme");
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${name}.mp3`);
+  fs.writeFileSync(file, speech.audio);
+  const duration = speech.durationSec ?? (await probeVideo(file)).durationSec;
+  fs.writeFileSync(
+    path.join(dir, `${name}.json`),
+    JSON.stringify({ text: input.text.trim(), voice, model, durationSec: duration, words: speech.words }, null, 2) + "\n",
+  );
+
+  const lines = [
+    `Gespeichert: studio/public/stimme/${name}.mp3 – in der Szenen-JSON: "voice": "stimme/${name}.mp3"`,
+    duration != null ? `Dauer: ${sec(duration)} s → Szene bzw. Abstand zur nächsten Dialogzeile mindestens ${sec(duration + 0.4)} s.` : "Dauer unbekannt – mit ffprobe prüfen.",
+    `Stimme: ${voice.name} · Modell: ${model}`,
+  ];
+  if (speech.words.length) {
+    const shown = speech.words.slice(0, 80).map((w) => `${sec(w.start)} ${w.word}`);
+    lines.push(`Wörter (Start in s): ${shown.join(" · ")}${speech.words.length > 80 ? " …" : ""}`);
+  }
+  lines.push("Denk an \"aiGenerated\": true in meta.json (KI-Stimme).");
+  return lines.join("\n");
 }

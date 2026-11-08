@@ -1,6 +1,6 @@
 import path from "node:path";
 import { connection } from "next/server";
-import { saveSettingsAction } from "@/app/actions";
+import { removeVoiceKeyAction, saveSettingsAction, saveVoiceSettingsAction } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
 import { Badge, Flash, PageHeader, flashFrom } from "@/components/ui";
 import { getDb } from "@/lib/db/client";
@@ -10,7 +10,14 @@ import { missingEnv } from "@/lib/publishing/oauth";
 import { oauthProviders } from "@/lib/publishing/registry";
 import { getEncryptionKey } from "@/lib/secrets/keystore";
 import { getSettings, readHeartbeat, workerAlive } from "@/lib/settings";
-import { relative } from "@/lib/time";
+import { formatDate, relative } from "@/lib/time";
+import { getElevenLabsKey, getUsage, type Usage } from "@/lib/voice/elevenlabs";
+
+const VOICE_MODELS = [
+  { id: "eleven_multilingual_v2", label: "Multilingual v2 – natürlich, sehr gutes Deutsch (empfohlen)" },
+  { id: "eleven_v3", label: "Eleven v3 – ausdrucksstärker, Emotionen" },
+  { id: "eleven_flash_v2_5", label: "Flash v2.5 – schnell und günstiger" },
+];
 
 const BACK = "/einstellungen";
 
@@ -26,6 +33,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   } catch (err) {
     keySource = `Fehler: ${(err as Error).message}`;
   }
+
+  const voiceKey = await getElevenLabsKey(db).catch(() => null);
+  let usage: Usage | null = null;
+  let usageError = "";
+  if (voiceKey) {
+    try {
+      usage = await getUsage(voiceKey);
+    } catch (err) {
+      usageError = (err as Error).message;
+    }
+  }
+  const models = VOICE_MODELS.some((m) => m.id === s.voice.model) ? VOICE_MODELS : [...VOICE_MODELS, { id: s.voice.model, label: s.voice.model }];
 
   return (
     <>
@@ -191,6 +210,72 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <SubmitButton className="btn btn-primary">Speichern</SubmitButton>
           </div>
         </form>
+
+        <section id="stimmen" className="card space-y-4 p-4 lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="h2">Stimmen (ElevenLabs)</h2>
+            {voiceKey ? <Badge tone="ok">Verbunden</Badge> : <Badge>Nicht eingerichtet</Badge>}
+          </div>
+          <p className="text-sm text-muted">
+            Damit spricht Claude Texte für deine Shorts ein, z. B. Erzähler oder gestellte Telefonate mit zwei Stimmen. Den API-Schlüssel legst du bei
+            elevenlabs.io unter „Developers → API Keys“ an. Er wird verschlüsselt gespeichert; Claude bekommt ihn nie zu sehen.
+          </p>
+          {voiceKey && (
+            <p className="text-sm">
+              {usage ? (
+                <>
+                  Verbraucht: <span className="font-medium tabular-nums">{usage.characterCount.toLocaleString("de-DE")}</span> von{" "}
+                  <span className="tabular-nums">{usage.characterLimit.toLocaleString("de-DE")}</span> Zeichen
+                  {usage.resetAt && <span className="text-muted"> · neues Guthaben am {formatDate(usage.resetAt, s.timezone)}</span>}
+                </>
+              ) : (
+                <span className="text-warn">{usageError}</span>
+              )}
+            </p>
+          )}
+          <form action={saveVoiceSettingsAction} className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="back" value="/einstellungen#stimmen" />
+            <div>
+              <label className="label" htmlFor="apiKey">
+                API-Schlüssel
+              </label>
+              <input
+                id="apiKey"
+                name="apiKey"
+                type="password"
+                autoComplete="off"
+                placeholder={voiceKey ? "hinterlegt – zum Ändern neu eingeben" : "sk_…"}
+                className="input font-mono"
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="voiceModel">
+                Modell
+              </label>
+              <select id="voiceModel" name="voiceModel" defaultValue={s.voice.model} className="input">
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+              <SubmitButton className="btn btn-primary" pendingText="Prüfe …">
+                {voiceKey ? "Speichern" : "Verbinden"}
+              </SubmitButton>
+              <span className="text-xs text-muted">Danach pro Projekt eine Stimme wählen: Projekt → Einstellungen → Stimmen.</span>
+            </div>
+          </form>
+          {voiceKey && (
+            <form action={removeVoiceKeyAction}>
+              <input type="hidden" name="back" value="/einstellungen#stimmen" />
+              <SubmitButton className="btn btn-danger py-1 text-xs" confirm="ElevenLabs-Schlüssel entfernen? Claude kann dann keine Stimmen mehr erzeugen.">
+                Schlüssel entfernen
+              </SubmitButton>
+            </form>
+          )}
+        </section>
 
         <section id="worker" className="card space-y-3 p-4 lg:col-span-2">
           <h2 className="h2">Worker und Daten</h2>

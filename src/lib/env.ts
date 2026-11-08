@@ -80,6 +80,10 @@ export const tiktokConfig = () => ({
   apiBase: (process.env.TIKTOK_API_BASE || "https://open.tiktokapis.com").replace(/\/+$/, ""),
 });
 
+export const elevenlabsConfig = () => ({
+  apiBase: (process.env.ELEVENLABS_API_BASE || "https://api.elevenlabs.io").replace(/\/+$/, ""),
+});
+
 export const linkedinConfig = () => ({
   clientId: process.env.LINKEDIN_CLIENT_ID ?? "",
   clientSecret: process.env.LINKEDIN_CLIENT_SECRET ?? "",

@@ -32,6 +32,7 @@ import {
   setArchived,
   updateBrief,
   updateProject,
+  updateVoices,
 } from "@/lib/projects";
 import { addLinkReference, addNoteReference, deleteReference, isCategory, updateReference } from "@/lib/references";
 import { QUICK_PROMPTS, cancelSession, createSession, deleteSession, getSession, sendMessage } from "@/lib/studio/sessions";
@@ -48,6 +49,7 @@ import { projects } from "@/lib/db/schema";
 import { startAnalysis } from "@/lib/analysis";
 import { refreshDueInsights } from "@/lib/analytics/store";
 import { addManualLearning, decideLearning, removeLearning } from "@/lib/learnings";
+import { listVoices, setElevenLabsKey } from "@/lib/voice/elevenlabs";
 import { appSettingsSchema, getSettings, updateSettings } from "@/lib/settings";
 import { addSlot, listSlots, nextFreeSlot, removeSlot, toggleSlot } from "@/lib/slots";
 import { formatDateTime, fromLocalInput, isValidTimezone } from "@/lib/time";
@@ -368,6 +370,7 @@ export async function saveSettingsAction(form: FormData) {
         model: str(form, "studioModel"),
         maxParallel: Number(form.get("studioMaxParallel") ?? current.studio.maxParallel),
       },
+      voice: current.voice,
       analytics: {
         fetchEveryHours: Number(form.get("anFetchEveryHours") ?? current.analytics.fetchEveryHours),
         weekly: form.get("anWeekly") === "on",
@@ -567,5 +570,44 @@ export async function removeLearningAction(form: FormData) {
   await attempt(form, "/zahlen", () => {
     removeLearning(getDb(), num(form, "learningId"));
     return "Erkenntnis entfernt";
+  });
+}
+
+/* ---------- Stimmen (ElevenLabs) ---------- */
+
+export async function saveVoiceSettingsAction(form: FormData) {
+  await attempt(form, "/einstellungen#stimmen", async () => {
+    const db = getDb();
+    const apiKey = str(form, "apiKey").trim();
+    const model = str(form, "voiceModel").trim();
+    if (apiKey) {
+      const voices = await listVoices(apiKey); // prüft den Schlüssel
+      await setElevenLabsKey(db, apiKey);
+      if (model) updateSettings(db, { voice: { model } });
+      return `ElevenLabs verbunden – ${voices.length} Stimmen verfügbar. Jetzt pro Projekt eine Stimme wählen (Projekt → Einstellungen).`;
+    }
+    if (model) updateSettings(db, { voice: { model } });
+    return "Stimmen-Einstellungen gespeichert";
+  });
+}
+
+export async function removeVoiceKeyAction(form: FormData) {
+  await attempt(form, "/einstellungen#stimmen", async () => {
+    await setElevenLabsKey(getDb(), null);
+    return "ElevenLabs-Schlüssel entfernt";
+  });
+}
+
+/** „id|Name“ aus der Auswahl → { id, name } */
+const voiceRef = (v: string) => {
+  const i = v.indexOf("|");
+  return i > 0 ? { id: v.slice(0, i), name: v.slice(i + 1) } : undefined;
+};
+
+export async function saveProjectVoicesAction(form: FormData) {
+  await attempt(form, "/projekte", () => {
+    const project = formProject(form);
+    updateVoices(getDb(), project.id, { main: voiceRef(str(form, "mainVoice")), second: voiceRef(str(form, "secondVoice")) });
+    return "Stimmen gespeichert – stehen jetzt auch in PROJEKT.md";
   });
 }

@@ -50,7 +50,9 @@ export function buildArgs(opts: {
 export function childEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env = {} as NodeJS.ProcessEnv;
   for (const [k, v] of Object.entries(base)) {
-    if (/SECRET|CLIENT_ID|CLIENT_KEY|APP_ID|CONFIG_ID|^STUDIO_|^FPS_/i.test(k)) continue;
+    // Anmeldung von Claude Code selbst (ANTHROPIC_*, CLAUDE_*) bleibt erhalten, alles andere Geheime nicht
+    const own = /^(ANTHROPIC_|CLAUDE_)/.test(k);
+    if (!own && /SECRET|CLIENT_ID|CLIENT_KEY|APP_ID|CONFIG_ID|API_KEY|TOKEN|PASSWORD|^STUDIO_|^FPS_/i.test(k)) continue;
     env[k] = v;
   }
   return env;

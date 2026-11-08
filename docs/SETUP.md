@@ -207,6 +207,25 @@ Im **Studio** gibst du Claude Code Aufträge wie „Mach einen neuen Short“ od
 - Willst du `CLAUDE.md` selbst pflegen, entferne die erste Zeile (Marker). Dann überschreibt das Studio die Datei nicht mehr.
 - Die Video-Vorlage nutzt Remotion. Für Einzelpersonen und Firmen bis 3 Mitarbeitende ist Remotion kostenlos, größere Firmen brauchen eine Lizenz (remotion.pro).
 
+## Stimmen mit ElevenLabs
+
+Damit kann Claude Texte einsprechen lassen: einen Erzähler oder gestellte Telefonate mit zwei Stimmen (Anrufer und Assistent).
+
+1. Konto bei https://elevenlabs.io anlegen. **Für Werbung brauchst du ein bezahltes Abo** (ab „Starter“). Im kostenlosen Plan ist die kommerzielle Nutzung nicht erlaubt.
+2. In ElevenLabs **Developers → API Keys → Create API Key**. Wenn du die Rechte einschränkst, brauchst du: Text to Speech, Voices (lesen) und User (lesen, für die Verbrauchsanzeige).
+3. In der App **Einstellungen → Stimmen (ElevenLabs)**: Schlüssel einfügen und auf **Verbinden** klicken. Die App prüft ihn sofort und speichert ihn verschlüsselt; Claude bekommt ihn nie zu sehen. Dort siehst du auch den Zeichenverbrauch.
+4. **Projekt → Einstellungen → Stimmen**: eine **Hauptstimme** wählen (Erzähler, Assistent), optional eine **zweite Stimme** fürs Gegenüber im Dialog.
+   - Stimmen aus der ElevenLabs-Bibliothek musst du dort erst zu „My Voices“ hinzufügen, dann erscheinen sie in der Auswahl.
+   - Eine eigene Stimme klonen darfst du nur von dir selbst oder mit schriftlicher Einwilligung der Person.
+5. Im Studio zum Beispiel schreiben: *„Mach einen Short mit Sprecher: gestelltes Telefonat, Anrufer und Assistent mit verschiedenen Stimmen.“*
+   Claude erzeugt die Sprechertexte mit dem Werkzeug `stimme_erzeugen` und legt sie unter `studio/public/stimme/` ab. Die Szenenlängen passt es an die Sprechdauer an. Hintergrundmusik läuft dann automatisch leiser.
+   Soll jeder Short einen Sprecher haben, schreib das ins Briefing unter **Regeln**.
+
+**Kosten:** ElevenLabs rechnet nach Zeichen ab. Ein 30-Sekunden-Short mit Sprecher braucht etwa 400 bis 600 Zeichen.
+**Kennzeichnung:** Videos mit KI-Stimme markiert Claude in `meta.json` als KI-generiert. Das Tool setzt dann die Plattform-Kennzeichnung bzw. hängt den KI-Hinweis an.
+
+Bestehende Projekte bekommen die erweiterte Video-Vorlage beim nächsten Studio-Auftrag automatisch. Hat Claude die Vorlage in einem Projekt schon angepasst, liegt die neue Fassung als `studio/src/Short.tsx.neu` daneben. Claude übernimmt die Neuerungen dann selbst.
+
 ## Automationen: jeden Tag neue Shorts
 
 Hat Claude im Studio einen Short gebaut, der dir gefällt, klickst du im Chat auf **„Als Automation speichern“**. Daraus wird ein **Rezept**: dein Auftrag, deine Rückmeldungen aus dem Chat und der gelungene Short als Vorbild. Du kannst das Rezept vor dem Speichern anpassen.

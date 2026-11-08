@@ -34,9 +34,14 @@ export const projects = sqliteTable("projects", {
   autoFillDays: integer("auto_fill_days").notNull().default(3),
   /** Letzte Wochenanalyse durch Claude */
   analysisAt: integer("analysis_at", { mode: "timestamp_ms" }),
+  /** Stimmen (ElevenLabs) für Sprechertexte: Hauptstimme und zweite Stimme fürs Gegenüber im Dialog */
+  voices: text("voices", { mode: "json" }).$type<ProjectVoices>().notNull().default({}),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+export type VoiceRef = { id: string; name: string };
+export type ProjectVoices = { main?: VoiceRef; second?: VoiceRef };
 
 export type ProjectBrief = {
   /** Für wen ist das Projekt? */

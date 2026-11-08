@@ -43,6 +43,13 @@
       "when": 1794067509691,
       "tag": "0005_analytics",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794168815782,
+      "tag": "0006_voices",
+      "breakpoints": true
     }
   ]
 }

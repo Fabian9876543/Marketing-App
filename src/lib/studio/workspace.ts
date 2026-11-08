@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { Project } from "../db/schema";
@@ -37,6 +38,97 @@ export const ALLOWED_TOOLS = [
 
 export const DENIED_TOOLS = ["Bash(rm *)", "Bash(git push*)", "Bash(curl *)", "Bash(wget *)", "Bash(sudo *)", "WebFetch", "WebSearch"];
 
+/* ---------- Vorlagen-Updates für bestehende Projekte ---------- */
+
+/** Version der Vorlage in vorlagen/studio. Erhöhen, wenn sich eine Datei aus UPGRADABLE ändert. */
+export const TEMPLATE_VERSION = 2;
+/** Dateien, die ein Update bekommen können (brand.json & Co. gehören dem Projekt). */
+const UPGRADABLE = ["src/Short.tsx", "README.md"];
+/** Prüfsummen der Dateien in Version 1 (vor den Stimmen) – Projekte ohne .vorlage.json stammen von dort. */
+const V1_HASHES: Record<string, string> = {
+  "src/Short.tsx": "9d8d8e106c67e5970f34b99dbc86c5abfd181dc51263889f41656168ee0b14b7",
+  "README.md": "9b1bba1c1ec2af55bdb05f0c661053495b1f56baf130929bd95702a1db8cbcc2",
+};
+const MANIFEST = ".vorlage.json";
+
+type Manifest = {
+  version: number;
+  /** Prüfsumme der Datei, wie sie aus der Vorlage kam */
+  files: Record<string, string>;
+  /** Angepasste Dateien, deren neue Fassung als <datei>.neu daneben liegt (Prüfsumme der angepassten Fassung) */
+  pending: Record<string, string>;
+};
+
+const sha256 = (file: string) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+
+function readManifest(dir: string): Manifest {
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(dir, MANIFEST), "utf8")) as Manifest;
+    return { version: m.version ?? 1, files: m.files ?? {}, pending: m.pending ?? {} };
+  } catch {
+    return { version: 1, files: { ...V1_HASHES }, pending: {} };
+  }
+}
+
+function writeManifest(dir: string, m: Manifest): void {
+  fs.writeFileSync(path.join(dir, MANIFEST), JSON.stringify(m, null, 2) + "\n");
+}
+
+/** Frisch kopierte Vorlage: Prüfsummen merken. */
+function initManifest(dir: string): void {
+  const files: Record<string, string> = {};
+  for (const f of UPGRADABLE) if (fs.existsSync(path.join(dir, f))) files[f] = sha256(path.join(dir, f));
+  writeManifest(dir, { version: TEMPLATE_VERSION, files, pending: {} });
+}
+
+/**
+ * Bringt die Vorlage eines bestehenden Projekts auf den neuen Stand.
+ * Unveränderte Dateien werden ersetzt. Angepasste bleiben, wie sie sind; die neue Fassung liegt dann als
+ * „<datei>.neu“ daneben, und Claude übernimmt die Neuerungen (Hinweis in CLAUDE.md). Sobald die angepasste
+ * Datei danach geändert wurde, gilt das als erledigt und die .neu-Datei verschwindet.
+ */
+export function upgradeTemplate(dir: string): { replaced: string[]; pending: string[] } {
+  const m = readManifest(dir);
+  const replaced: string[] = [];
+
+  // Erledigte Übernahmen aufräumen
+  for (const [f, hashAtConflict] of Object.entries(m.pending)) {
+    const file = path.join(dir, f);
+    if (!fs.existsSync(file) || sha256(file) !== hashAtConflict) {
+      fs.rmSync(`${file}.neu`, { force: true });
+      delete m.pending[f];
+    }
+  }
+
+  if (m.version < TEMPLATE_VERSION) {
+    for (const f of UPGRADABLE) {
+      const src = path.join(templateDir(), f);
+      const dest = path.join(dir, f);
+      if (!fs.existsSync(src)) continue;
+      const fresh = sha256(src);
+      if (!fs.existsSync(dest) || sha256(dest) === m.files[f]) {
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.copyFileSync(src, dest);
+        replaced.push(f);
+      } else if (sha256(dest) !== fresh) {
+        fs.copyFileSync(src, `${dest}.neu`);
+        m.pending[f] = sha256(dest);
+      }
+      m.files[f] = fresh;
+    }
+    m.version = TEMPLATE_VERSION;
+  }
+  writeManifest(dir, m);
+  return { replaced, pending: Object.keys(m.pending) };
+}
+
+/** Angepasste Vorlagen-Dateien, deren Neuerungen Claude noch übernehmen soll. */
+export function pendingTemplateMerges(project: Pick<Project, "folder">): string[] {
+  const dir = studioDir(project);
+  if (!fs.existsSync(path.join(dir, MANIFEST))) return [];
+  return Object.keys(readManifest(dir).pending).filter((f) => fs.existsSync(path.join(dir, `${f}.neu`)));
+}
+
 export type StudioStatus = {
   /** Vorlage liegt in <projekt>/studio */
   template: boolean;
@@ -71,6 +163,9 @@ export function setupStudio(project: Project): StudioStatus {
     const brand = JSON.parse(fs.readFileSync(brandFile, "utf8"));
     Object.assign(brand, { name: project.name, primary: project.color, url: project.website ? new URL(project.website).hostname.replace(/^www\./, "") : "" });
     fs.writeFileSync(brandFile, JSON.stringify(brand, null, 2) + "\n");
+    initManifest(dir);
+  } else {
+    upgradeTemplate(dir);
   }
 
   const claudeMd = path.join(project.folder, "CLAUDE.md");
@@ -100,7 +195,17 @@ export function setupStudio(project: Project): StudioStatus {
 
 /** Arbeitsanweisung für Claude Code im Projektordner. */
 export function agentInstructions(project: Project): string {
-  return `${MARKER}
+  const pending = pendingTemplateMerges(project);
+  const update = pending.length
+    ? `
+## Zuerst: Vorlage aktualisieren
+Die Video-Vorlage hat eine neue Fassung (u. a. Sprecher-Spuren für Stimmen). Diese Dateien wurden in diesem Projekt angepasst und deshalb nicht überschrieben:
+${pending.map((f) => `- \`studio/${f}\` – neue Fassung daneben in \`studio/${f}.neu\``).join("\n")}
+
+Übernimm die Neuerungen aus der .neu-Datei mit Edit in die angepasste Datei und behalte dabei die Anpassungen des Projekts. Die .neu-Datei verschwindet danach von selbst.
+`
+    : "";
+  return `${MARKER}${update}
 # ${project.name} – Arbeitsanweisung für Claude Code
 
 Du arbeitest im Projektordner von **${project.name}** für das Marketing Studio. Deine Aufgabe: kurze Hochkant-Videos (Shorts)
@@ -130,6 +235,14 @@ Im Studio beantwortet niemand Rückfragen. Jeder Befehl außerhalb dieser Liste 
 - Pro Aufruf ein einfacher Befehl, höchstens \`cd <ordner> && <befehl>\`. Keine Variablen (\`$NAME\`, \`$(…)\`), keine Schleifen, keine Pipes (\`|\`) in andere Programme.
 - Pfade und Namen immer ausschreiben, z. B. \`cd studio && npx remotion render src/index.ts Short ../backlog/2026-11-08-termin/video.mp4 --props=props/2026-11-08-termin.json\`.
 - Suchen und Lesen mit den Werkzeugen Read, Glob und Grep statt mit cat, find oder grep im Terminal.
+
+## Stimmen (ElevenLabs)
+Nur wenn die Aufgabe nach Sprecher oder Stimmen verlangt oder das Briefing es vorsieht. \`stimmen_liste\` zeigt, ob Stimmen eingerichtet sind.
+1. Erst alle Sprechtexte fertig formulieren – jede Erzeugung kostet Guthaben. Kurze Sätze, so wie man spricht, etwa 2,5 Wörter pro Sekunde.
+2. Pro Szene bzw. Dialogzeile eine Datei mit \`stimme_erzeugen\` (z. B. \`<slug>-hook\`, \`<slug>-dialog-1\`). Hauptstimme für Erzähler und Assistent, \`"zweit"\` für das Gegenüber (z. B. Anrufer).
+3. In der Szenen-JSON: \`"voice": "stimme/<datei>.mp3"\`, \`"seconds"\` mindestens Dauer + 0,4. Im Dialog pro Zeile \`"voice"\` und \`"at"\` (siehe \`studio/README.md\`).
+4. In meta.json \`"aiGenerated": true\` – Pflicht bei KI-Stimmen.
+- Nur Stimmen aus \`stimmen_liste\`. Keine echten Personen nachahmen.
 
 ## Ausgabe-Vertrag
 Jeder Short ist ein eigener Ordner: \`backlog/<JJJJ-MM-TT>-<kurzer-slug>/\` mit
@@ -175,5 +288,7 @@ Jeder Short ist ein eigener Ordner: \`backlog/<JJJJ-MM-TT>-<kurzer-slug>/\` mit
 - \`statistik\` – Zahlen der Posts mit Bewertung gegen den Median des Kanals
 - \`erkenntnisse\` – bestätigte, vorgeschlagene und abgelehnte Erkenntnisse
 - \`erkenntnis_vorschlagen\` – neue Erkenntnis zur Bestätigung vorschlagen
+- \`stimmen_liste\` – Stimmen des Projekts und des ElevenLabs-Kontos
+- \`stimme_erzeugen\` – Sprechertext als MP3 erzeugen (kostet Guthaben)
 `;
 }

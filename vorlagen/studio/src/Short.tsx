@@ -33,18 +33,40 @@ export type Brand = {
   url: string;
 };
 
-export type Scene =
-  | { type: "hook"; text: string; sub?: string; seconds?: number }
-  | { type: "text"; title?: string; lines: string[]; seconds?: number }
-  | { type: "bild"; src: string; caption?: string; seconds?: number; zoom?: boolean }
-  | { type: "video"; src: string; caption?: string; seconds?: number; startAt?: number; muted?: boolean }
-  | { type: "dialog"; title?: string; lines: { who: string; text: string; side?: "links" | "rechts" }[]; seconds?: number }
-  | { type: "cta"; text: string; sub?: string; url?: string; seconds?: number };
+/** Sprecher-Spur: MP3 in public/ (z. B. „stimme/hook.mp3“ vom Werkzeug stimme_erzeugen) */
+export type Voice = string | { src: string; volume?: number; delay?: number };
+
+/** Felder, die jede Szene haben kann */
+type Common = {
+  seconds?: number;
+  /** Sprechertext zur Szene, startet mit der Szene (plus „delay“ in Sekunden) */
+  voice?: Voice;
+};
+
+export type DialogLine = {
+  who: string;
+  text: string;
+  side?: "links" | "rechts";
+  /** Sprecher-Spur dieser Zeile (startet, wenn die Sprechblase erscheint) */
+  voice?: string;
+  /** Erscheint nach so vielen Sekunden ab Szenenbeginn (Standard: gleichmäßig verteilt) */
+  at?: number;
+};
+
+export type Scene = Common &
+  (
+    | { type: "hook"; text: string; sub?: string }
+    | { type: "text"; title?: string; lines: string[] }
+    | { type: "bild"; src: string; caption?: string; zoom?: boolean }
+    | { type: "video"; src: string; caption?: string; startAt?: number; muted?: boolean }
+    | { type: "dialog"; title?: string; lines: DialogLine[] }
+    | { type: "cta"; text: string; sub?: string; url?: string }
+  );
 
 export type ShortProps = {
   brand?: Partial<Brand>;
   scenes: Scene[];
-  /** Musik/Sprecher in public/, z. B. { "src": "musik.mp3", "volume": 0.3 } */
+  /** Hintergrundmusik in public/, z. B. { "src": "musik.mp3", "volume": 0.3 } – mit Sprecher automatisch leiser (0,12) */
   music?: { src: string; volume?: number };
   /** Logo oben links einblenden (Standard: an, wenn ein Logo gesetzt ist) */
   logoCorner?: boolean;
@@ -58,6 +80,19 @@ export const totalSeconds = (p: ShortProps) => (p.scenes ?? []).reduce((t, s) =>
 
 /** Dateien aus public/ (oder vollständige URLs) */
 const asset = (p: string) => (/^https?:\/\//.test(p) ? p : staticFile(p.replace(/^\/+/, "")));
+
+/** Kommt irgendwo ein Sprecher vor? (Dann läuft die Musik leiser.) */
+export const hasVoice = (p: ShortProps) => (p.scenes ?? []).some((s) => s.voice || (s.type === "dialog" && s.lines.some((l) => l.voice)));
+
+function VoiceTrack({ voice }: { voice: Voice }) {
+  const { fps } = useVideoConfig();
+  const v = typeof voice === "string" ? { src: voice } : voice;
+  return (
+    <Sequence from={Math.round((v.delay ?? 0) * fps)} layout="none" name="Stimme">
+      <Audio src={asset(v.src)} volume={v.volume ?? 1} />
+    </Sequence>
+  );
+}
 
 /* ---------- Bausteine ---------- */
 
@@ -161,6 +196,8 @@ function DialogScene({ s, brand }: { s: Extract<Scene, { type: "dialog" }>; bran
   const { fps } = useVideoConfig();
   const step = Math.max(10, Math.floor(((sceneSeconds(s) - 1) * fps) / Math.max(1, s.lines.length)));
   const sides = [...new Set(s.lines.map((l) => l.who))];
+  // Zeitpunkt jeder Zeile: „at“ (Sekunden) oder gleichmäßig verteilt
+  const startOf = (line: DialogLine, i: number) => (line.at != null ? Math.round(line.at * fps) : 6 + i * step);
   return (
     <AbsoluteFill style={{ background: brand.background }}>
       <div style={SAFE}>
@@ -172,7 +209,7 @@ function DialogScene({ s, brand }: { s: Extract<Scene, { type: "dialog" }>; bran
         {s.lines.map((line, i) => {
           const right = line.side ? line.side === "rechts" : sides.indexOf(line.who) % 2 === 1;
           return (
-            <Appear key={i} delay={6 + i * step} style={{ display: "flex", justifyContent: right ? "flex-end" : "flex-start", marginBottom: 28 }}>
+            <Appear key={i} delay={startOf(line, i)} style={{ display: "flex", justifyContent: right ? "flex-end" : "flex-start", marginBottom: 28 }}>
               <div style={{ maxWidth: "82%" }}>
                 <div style={{ color: brand.text, opacity: 0.7, fontSize: 34, fontWeight: 600, marginBottom: 8, textAlign: right ? "right" : "left" }}>{line.who}</div>
                 <div
@@ -195,6 +232,13 @@ function DialogScene({ s, brand }: { s: Extract<Scene, { type: "dialog" }>; bran
           );
         })}
       </div>
+      {s.lines.map((line, i) =>
+        line.voice ? (
+          <Sequence key={`v${i}`} from={startOf(line, i)} layout="none" name={`Stimme ${line.who}`}>
+            <Audio src={asset(line.voice)} />
+          </Sequence>
+        ) : null,
+      )}
     </AbsoluteFill>
   );
 }
@@ -268,6 +312,7 @@ export const Short = (props: ShortProps) => {
     const seq = (
       <Sequence key={i} from={from} durationInFrames={len} name={`${i + 1}: ${s.type}`}>
         <SceneView s={s} brand={brand} />
+        {s.voice && <VoiceTrack voice={s.voice} />}
       </Sequence>
     );
     from += len;
@@ -287,7 +332,7 @@ export const Short = (props: ShortProps) => {
       }}
     >
       {sequences}
-      {props.music && <Audio src={asset(props.music.src)} volume={props.music.volume ?? 0.3} />}
+      {props.music && <Audio src={asset(props.music.src)} volume={props.music.volume ?? (hasVoice(props) ? 0.12 : 0.3)} />}
       {brand.logo && props.logoCorner !== false && (
         <Img src={asset(brand.logo)} style={{ position: "absolute", top: 70, left: 70, width: 120, height: 120, objectFit: "contain" }} />
       )}

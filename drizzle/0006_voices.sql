@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `voices` text DEFAULT '{}' NOT NULL;

@@ -236,6 +236,8 @@ describe("Werkzeuge für Claude (MCP)", () => {
       "konten_liste",
       "projekt_briefing",
       "statistik",
+      "stimme_erzeugen",
+      "stimmen_liste",
       "zur_freigabe_einplanen",
     ]);
     const stats = await client.callTool({ name: "statistik", arguments: { tage: 7 } });

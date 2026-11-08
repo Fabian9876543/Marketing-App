@@ -13,6 +13,7 @@ Lokales Marketing-Tool für **beliebig viele Projekte** – Apps, Marken, Kunden
 - **Studio:** Claude Code baut Shorts per Auftrag oder Schnellaktion, live im Chat mitverfolgbar. Grundlage sind Briefing und Referenzen; gerendert wird mit der mitgelieferten Remotion-Vorlage. Die fertigen Shorts samt Texten landen im Backlog, nichts geht ohne Freigabe online.
 - **Automationen:** Aus einem gelungenen Studio-Chat wird ein Rezept, nach dem Claude zu festen Zeiten neue Shorts baut, jedes Mal mit neuem Thema. Neue Shorts und freie Posting-Zeiten werden automatisch zur Freigabe eingeplant.
 - **Zahlen und Lernen:** Der Worker holt die Zahlen aller Konten, auch für Posts, die nicht über das Tool liefen. Jeder Beitrag wird mit dem Median seines Kanals verglichen (stark/normal/schwach). Einmal pro Woche schlägt Claude Erkenntnisse vor. Was du bestätigst, landet in `PROJEKT.md` und gilt für jeden neuen Short.
+- **Stimmen (ElevenLabs):** Claude lässt Sprechertexte einsprechen, z. B. für einen Erzähler oder gestellte Telefonate mit zwei Stimmen. Die Stimme wählst du pro Projekt, der API-Schlüssel liegt verschlüsselt in der App.
 - **Backlog:** ein Ordner pro Short (`video.mp4` + optional `meta.json`) oder Upload im Browser. Dauer und Format werden geprüft.
 - **Planen:** Posting-Zeiten (Slots), „nächster freier Slot“ oder feste Zeit. Kalender als Woche oder Monat.
 - **Freigabe:** Warteschlange mit „Freigeben“, „Alle freigeben“, „Verschieben“ und „Absagen“. Nichts geht ohne Freigabe online.

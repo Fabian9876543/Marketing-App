@@ -53,6 +53,12 @@ export const appSettingsSchema = z.object({
       maxParallel: z.number().int().min(1).max(4).default(2),
     })
     .default({ model: "", maxParallel: 2 }),
+  voice: z
+    .object({
+      /** ElevenLabs-Modell für Sprechertexte */
+      model: z.string().max(60).default("eleven_multilingual_v2"),
+    })
+    .default({ model: "eleven_multilingual_v2" }),
   /** Wird an die Caption gehängt, wenn ein Video KI-Inhalte enthält und die Plattform keine eigene Kennzeichnung per API hat. */
   aiDisclosure: z.string().max(200).default("Mit KI erstellt."),
 });

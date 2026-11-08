@@ -13,6 +13,7 @@ import {
   projects,
   type Project,
   type ProjectBrief,
+  type ProjectVoices,
   type ReferenceCategory,
 } from "./db/schema";
 import { slugify } from "./backlog";
@@ -158,6 +159,16 @@ export function updateBrief(db: DB, id: number, brief: ProjectBrief): Project {
   return updated;
 }
 
+export function updateVoices(db: DB, id: number, voices: ProjectVoices): Project {
+  requireProject(db, id);
+  const clean: ProjectVoices = {};
+  if (voices.main?.id) clean.main = { id: voices.main.id, name: voices.main.name || voices.main.id };
+  if (voices.second?.id) clean.second = { id: voices.second.id, name: voices.second.name || voices.second.id };
+  const updated = db.update(projects).set({ voices: clean }).where(eq(projects.id, id)).returning().get();
+  writeBriefFile(db, id);
+  return updated;
+}
+
 export function setArchived(db: DB, id: number, archived: boolean): void {
   requireProject(db, id);
   db.update(projects).set({ archived }).where(eq(projects.id, id)).run();
@@ -238,6 +249,12 @@ export function writeBriefFile(db: DB, id: number): string {
     section("Handlungsaufforderung", b.cta),
   );
   if (p.defaultHashtags.length) lines.push(`## Standard-Hashtags\n\n${p.defaultHashtags.join(" ")}\n`);
+  if (p.voices.main || p.voices.second) {
+    lines.push("## Stimmen (ElevenLabs)\n");
+    if (p.voices.main) lines.push(`- Hauptstimme (Erzähler, Assistent): ${p.voices.main.name}`);
+    if (p.voices.second) lines.push(`- Zweite Stimme (Gegenüber im Dialog, z. B. Anrufer): ${p.voices.second.name}`);
+    lines.push("- Sprechertexte mit dem Werkzeug `stimme_erzeugen`; Videos mit KI-Stimme brauchen `\"aiGenerated\": true`.", "");
+  }
 
   const known = db
     .select()

@@ -11,6 +11,7 @@ import {
   deleteReferenceAction,
   openProjectFolderAction,
   removeSlotAction,
+  saveProjectVoicesAction,
   switchProjectAction,
   toggleSlotAction,
   updateAutoFillAction,
@@ -19,6 +20,7 @@ import {
   updateReferenceAction,
 } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
+import { describeVoice, getElevenLabsKey, listVoices, type Voice } from "@/lib/voice/elevenlabs";
 import { Badge, Flash, PageHeader, Tabs } from "@/components/ui";
 import { getScope } from "@/lib/active-project";
 import { getDb } from "@/lib/db/client";
@@ -396,6 +398,7 @@ function SlotsTab({ project, slots, back }: { project: Project; slots: ReturnTyp
 function SettingsTab({ project, back, hasData }: { project: Project; back: string; hasData: boolean }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="min-w-0 space-y-6">
       <form action={updateProjectAction} className="card space-y-4 p-5">
         <input type="hidden" name="projectId" value={project.id} />
         <input type="hidden" name="back" value={back} />
@@ -446,8 +449,10 @@ function SettingsTab({ project, back, hasData }: { project: Project; back: strin
           <SubmitButton className="btn btn-primary">Speichern</SubmitButton>
         </div>
       </form>
+      <VoicesCard project={project} back={back} />
+      </div>
 
-      <section className="card space-y-3 border-bad-bg p-4">
+      <section className="card space-y-3 border-bad-bg p-4 lg:self-start">
         <h3 className="h2">Archivieren oder löschen</h3>
         <p className="text-sm text-muted">
           Archivierte Projekte verschwinden aus der Auswahl; bereits geplante Posts werden trotzdem veröffentlicht.
@@ -474,5 +479,74 @@ function SettingsTab({ project, back, hasData }: { project: Project; back: strin
         )}
       </section>
     </div>
+  );
+}
+
+async function VoicesCard({ project, back }: { project: Project; back: string }) {
+  const db = getDb();
+  const key = await getElevenLabsKey(db).catch(() => null);
+  let voices: Voice[] = [];
+  let error = "";
+  if (key) {
+    try {
+      voices = await listVoices(key);
+    } catch (err) {
+      error = (err as Error).message;
+    }
+  }
+  const { main, second } = project.voices;
+  const options = (current?: { id: string; name: string }) => {
+    const list = voices.map((v) => ({ value: `${v.id}|${v.name}`, label: `${v.name}${describeVoice(v) ? ` – ${describeVoice(v)}` : ""}`, id: v.id }));
+    // Gespeicherte Stimme, die es im Konto nicht mehr gibt, trotzdem anzeigen
+    if (current && !list.some((o) => o.id === current.id)) list.unshift({ value: `${current.id}|${current.name}`, label: `${current.name} (nicht mehr im Konto)`, id: current.id });
+    return list;
+  };
+  const preview = (ref?: { id: string }) => voices.find((v) => v.id === ref?.id)?.previewUrl;
+
+  return (
+    <section id="stimmen" className="card space-y-4 p-5">
+      <h3 className="h2">Stimmen</h3>
+      {!key ? (
+        <p className="text-sm text-muted">
+          Damit Claude Sprechertexte erzeugen kann, zuerst unter{" "}
+          <Link href="/einstellungen#stimmen" className="underline">
+            Einstellungen → Stimmen
+          </Link>{" "}
+          den ElevenLabs-Schlüssel hinterlegen.
+        </p>
+      ) : error ? (
+        <p className="text-sm text-bad">{error}</p>
+      ) : (
+        <form action={saveProjectVoicesAction} className="space-y-4">
+          <input type="hidden" name="projectId" value={project.id} />
+          <input type="hidden" name="back" value={`${back}#stimmen`} />
+          {(
+            [
+              { name: "mainVoice", label: "Hauptstimme – Erzähler, Assistent", current: main },
+              { name: "secondVoice", label: "Zweite Stimme – Gegenüber im Dialog (z. B. Anrufer)", current: second },
+            ] as const
+          ).map((f) => (
+            <div key={f.name}>
+              <label className="label" htmlFor={f.name}>
+                {f.label}
+              </label>
+              <select id={f.name} name={f.name} defaultValue={f.current ? `${f.current.id}|${f.current.name}` : ""} className="input">
+                <option value="">– keine –</option>
+                {options(f.current).map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              {preview(f.current) && <audio controls preload="none" src={preview(f.current)!} className="mt-2 h-9 w-full" />}
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted">Eigene oder geklonte Stimmen legst du in ElevenLabs an – sie erscheinen dann hier. Klonen nur die eigene Stimme oder mit Einwilligung.</p>
+            <SubmitButton className="btn btn-primary">Speichern</SubmitButton>
+          </div>
+        </form>
+      )}
+    </section>
   );
 }

@@ -19,7 +19,7 @@ npx remotion render src/index.ts Short ../backlog/<ordner>/video.mp4 --props=<da
 
 Vorschau im Browser: `npm run vorschau`.
 
-Dateien, die im Video vorkommen (Logo, Screenshots, Bildschirmaufnahmen, Musik, Schrift), liegen in `studio/public/`. In der JSON gibst du sie relativ dazu an, z. B. `"src": "screens/start.png"`. Kopiere sie aus `../referenzen/`; verschiebe die Originale nicht.
+Dateien, die im Video vorkommen (Logo, Screenshots, Bildschirmaufnahmen, Musik, Sprecher, Schrift), liegen in `studio/public/`. In der JSON gibst du sie relativ dazu an, z. B. `"src": "screens/start.png"`. Kopiere sie aus `../referenzen/`; verschiebe die Originale nicht.
 
 ## Marke: `brand.json`
 
@@ -57,7 +57,30 @@ Die Länge des Videos ergibt sich aus den Szenen. Jede Szene hat eine Standardda
 | `dialog` | `title`, `lines` mit `who`, `text`, optional `side` (`links`/`rechts`) | 6 s | Chat- oder Telefon-Dialog als Sprechblasen |
 | `cta` | `text`, `sub`, `url` | 3 s | Schluss mit Logo und Handlungsaufforderung |
 
+Jede Szene kann zusätzlich `"voice"` haben: eine Sprecher-Spur, die mit der Szene startet – als Pfad (`"stimme/hook.mp3"`) oder als `{ "src": …, "volume": 1, "delay": 0.3 }`.
+
 Ein vollständiges Beispiel steht in `beispiele/beispiel.json`.
+
+## Sprecher (Stimmen)
+
+Sprechertexte erzeugt das Werkzeug `stimme_erzeugen` (ElevenLabs). Es legt die MP3 unter `public/stimme/` ab und nennt die Dauer.
+
+- **Szene mit Sprecher:** `"voice": "stimme/<datei>.mp3"` und `"seconds"` mindestens Dauer + 0,4 s.
+- **Dialog mit Stimmen:** pro Zeile `"voice"` und `"at"` (Sekunden ab Szenenbeginn, wann die Sprechblase erscheint und die Stimme startet).
+  `at` der nächsten Zeile = `at` + Dauer + 0,3. Szenendauer = letztes `at` + Dauer + 0,6.
+- Hintergrundmusik läuft automatisch leiser (0,12), sobald ein Sprecher vorkommt. `music.volume` überschreibt das.
+
+```json
+{
+  "type": "dialog",
+  "title": "22:14 Uhr – Praxis geschlossen",
+  "seconds": 7.4,
+  "lines": [
+    { "who": "Anrufer", "text": "Haben Sie morgen noch einen Termin?", "voice": "stimme/termin-1.mp3", "at": 0.3 },
+    { "who": "Assistent", "text": "Ja, um 9:30 Uhr. Soll ich Sie eintragen?", "voice": "stimme/termin-2.mp3", "at": 3.1 }
+  ]
+}
+```
 
 ## Tipps für gute Shorts
 

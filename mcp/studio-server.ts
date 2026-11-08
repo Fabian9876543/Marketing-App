@@ -19,7 +19,9 @@ import {
   learningsTool,
   proposeLearningTool,
   proposeTool,
+  speakTool,
   statsTool,
+  voicesTool,
 } from "../src/lib/studio/tools";
 
 const projectId = Number(process.env.STUDIO_PROJECT_ID);
@@ -119,6 +121,31 @@ server.registerTool(
     },
   },
   async (args) => safe(() => proposeLearningTool(db, project(), args))(),
+);
+
+server.registerTool(
+  "stimmen_liste",
+  {
+    title: "Stimmen",
+    description: "Die Stimmen des Projekts (Hauptstimme, zweite Stimme) und alle Stimmen im ElevenLabs-Konto mit Beschreibung.",
+  },
+  safe(() => voicesTool(db, project())),
+);
+
+server.registerTool(
+  "stimme_erzeugen",
+  {
+    title: "Sprechertext erzeugen",
+    description:
+      "Erzeugt mit ElevenLabs eine MP3 aus Text und legt sie in studio/public/stimme/ ab. Liefert den Pfad für die Szenen-JSON, die Dauer und Zeitstempel je Wort. Kostet Zeichen-Guthaben – erst den Text fertig formulieren, dann erzeugen.",
+    inputSchema: {
+      text: z.string().min(1).max(1000).describe("Was gesprochen wird (Deutsch, kurze Sätze, so wie man spricht)"),
+      datei: z.string().min(1).max(100).describe("Dateiname ohne Endung, z. B. 2026-11-08-termin-hook oder 2026-11-08-termin-dialog-1"),
+      stimme: z.string().optional().describe("„haupt“ (Standard), „zweit“ oder Name bzw. ID aus stimmen_liste"),
+      tempo: z.number().min(0.7).max(1.2).optional().describe("Sprechtempo, 1 = normal"),
+    },
+  },
+  async (args) => safe(() => speakTool(db, project(), args))(),
 );
 
 await server.connect(new StdioServerTransport());
