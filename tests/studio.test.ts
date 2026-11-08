@@ -13,7 +13,7 @@ import { listPostViews } from "@/lib/posts";
 import { updateBrief } from "@/lib/projects";
 import { addSlot } from "@/lib/slots";
 import { claudeInfo, explainClaudeError } from "@/lib/studio/claude";
-import { buildArgs, childEnv, describeTool, executeRun, parseEvent, StudioQueue } from "@/lib/studio/runner";
+import { blockedReason, buildArgs, childEnv, describeTool, executeRun, parseEvent, StudioQueue } from "@/lib/studio/runner";
 import { cancelSession, createSession, sendMessage, sessionMessages, sessionRuns } from "@/lib/studio/sessions";
 import { freeSlotsTool, proposeTool } from "@/lib/studio/tools";
 import { agentInstructions, setupStudio, studioStatus } from "@/lib/studio/workspace";
@@ -92,6 +92,13 @@ describe("Aufruf von Claude Code", () => {
     expect(parseEvent({ type: "result", subtype: "success", duration_ms: 125000, num_turns: 7 })[0]).toEqual({ kind: "result", text: "Fertig · nach 2 Min. 5 s · 7 Schritte", isError: false });
     expect(parseEvent({ type: "result", subtype: "error_max_turns", is_error: true, result: "Please run /login" })[0].text).toContain("nicht angemeldet");
     expect(parseEvent({ type: "stream_event" })).toEqual([]);
+    const denied =
+      "Permission for this tool use was denied. It requires approval, and this session has no approval surface — nobody can answer a permission prompt here.\nWhat required approval: A variable in this command can't be checked before it runs";
+    expect(parseEvent({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "3", content: denied, is_error: true }] } })).toEqual([
+      { kind: "info", text: "Befehl gesperrt (im Studio nicht freigegeben) – Claude macht ohne ihn weiter. Grund: A variable in this command can't be checked before it runs" },
+    ]);
+    expect(blockedReason("Claude requested permissions to use Bash, but you haven't granted it yet.")).toBe("");
+    expect(blockedReason("Error: ENOENT")).toBeNull();
     expect(describeTool("TodoWrite", { todos: [{ content: "Rendern", status: "completed" }, { content: "Texte", status: "pending" }] })).toBe("✓ Rendern\n· Texte");
   });
 

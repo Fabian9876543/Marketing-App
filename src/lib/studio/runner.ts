@@ -21,6 +21,7 @@ export function systemAppend(project: Project, now = new Date()): string {
     `Du läufst im Marketing Studio für das Projekt „${project.name}“, nicht interaktiv: Niemand kann Rückfragen beantworten.`,
     "Triff sinnvolle Annahmen, arbeite die Aufgabe vollständig ab und nenne deine Annahmen am Ende kurz.",
     "Halte dich an CLAUDE.md im Projektordner. Veröffentliche nichts.",
+    "Dateien nur mit Write/Edit ändern. Im Terminal nur die Befehle aus CLAUDE.md, einzeln und ohne Variablen – alles andere wird automatisch abgelehnt.",
     `Heute ist ${now.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}.`,
   ].join(" ");
 }
@@ -106,6 +107,16 @@ export function describeTool(name: string, input: Record<string, unknown>): stri
   }
 }
 
+/**
+ * Claude Code hat einen Befehl abgelehnt, weil er im Studio nicht freigegeben ist (keine Rückfrage möglich).
+ * Liefert den Grund (erste Zeile) oder null, wenn es keine solche Ablehnung ist.
+ */
+export function blockedReason(text: string): string | null {
+  if (!/Permission for this tool use was denied|requested permissions to use|haven't granted it yet/i.test(text)) return null;
+  const reason = text.match(/What required approval:\s*(.+)/)?.[1] ?? "";
+  return short(reason.trim(), 160);
+}
+
 /** Ein stream-json-Ereignis in Chat-Nachrichten übersetzen. */
 export function parseEvent(ev: StreamEvent): ParsedMessage[] {
   if (ev.type === "assistant") {
@@ -126,6 +137,10 @@ export function parseEvent(ev: StreamEvent): ParsedMessage[] {
       if (b.type !== "tool_result") return [];
       const raw = b.content;
       const text = typeof raw === "string" ? raw : Array.isArray(raw) ? raw.map((c) => (c as { text?: string }).text ?? "").join("\n") : "";
+      const blocked = b.is_error ? blockedReason(text) : null;
+      if (blocked != null) {
+        return [{ kind: "info", text: `Befehl gesperrt (im Studio nicht freigegeben) – Claude macht ohne ihn weiter.${blocked ? ` Grund: ${blocked}` : ""}` }];
+      }
       return [{ kind: "tool_result", text: short(text.trim(), 2000), isError: Boolean(b.is_error) }];
     });
   }

@@ -31,6 +31,7 @@ export const ALLOWED_TOOLS = [
   "Bash(ls *)",
   "Bash(du *)",
   "Bash(node scripts/*)",
+  "Bash(cd *)",
   "mcp__studio",
 ];
 
@@ -121,6 +122,14 @@ für Instagram Reels, TikTok, YouTube Shorts und LinkedIn – plus die Texte daz
 6. **Prüfen**: \`ffprobe\` – 1080 × 1920, 5–60 Sekunden. Bei Fehlern korrigieren und neu rendern.
 7. **Texte**: \`meta.json\` in denselben Ordner schreiben (siehe unten).
 8. **Einlesen**: Werkzeug \`backlog_einlesen\` aufrufen, damit der Short in der App erscheint.
+
+## Befehle im Terminal – sonst werden sie blockiert
+Im Studio beantwortet niemand Rückfragen. Jeder Befehl außerhalb dieser Liste wird automatisch abgelehnt:
+\`npm install\`, \`npm run …\`, \`npx remotion …\`, \`ffmpeg …\`, \`ffprobe …\`, \`mkdir …\`, \`cp …\`, \`ls …\`, \`du …\`, \`node scripts/…\`, \`cd <ordner>\`.
+- **Dateien nur mit den Werkzeugen Write und Edit anlegen oder ändern** – nie per python, \`node -e\`, sed, awk, \`cat >\` oder Heredoc.
+- Pro Aufruf ein einfacher Befehl, höchstens \`cd <ordner> && <befehl>\`. Keine Variablen (\`$NAME\`, \`$(…)\`), keine Schleifen, keine Pipes (\`|\`) in andere Programme.
+- Pfade und Namen immer ausschreiben, z. B. \`cd studio && npx remotion render src/index.ts Short ../backlog/2026-11-08-termin/video.mp4 --props=props/2026-11-08-termin.json\`.
+- Suchen und Lesen mit den Werkzeugen Read, Glob und Grep statt mit cat, find oder grep im Terminal.
 
 ## Ausgabe-Vertrag
 Jeder Short ist ein eigener Ordner: \`backlog/<JJJJ-MM-TT>-<kurzer-slug>/\` mit
