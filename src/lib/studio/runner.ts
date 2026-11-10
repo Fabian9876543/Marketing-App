@@ -12,6 +12,7 @@ import { getProject } from "../projects";
 import { getSettings } from "../settings";
 import { claudeBin, claudeInfo, explainClaudeError, type ClaudeInfo } from "./claude";
 import { addMessage } from "./sessions";
+import { higgsfieldAppend, higgsfieldFor, type HiggsfieldUse } from "./higgsfield";
 import { ALLOWED_TOOLS, DENIED_TOOLS, setupStudio } from "./workspace";
 
 /* ---------- Aufruf zusammenbauen ---------- */
@@ -33,14 +34,17 @@ export function buildArgs(opts: {
   model?: string;
   append: string;
   flags: Set<string>;
+  /** Higgsfield freigeben: dann auch die MCP-Server, die Claude Code selbst kennt (dort ist Higgsfield angemeldet) */
+  higgsfield?: HiggsfieldUse;
 }): string[] {
   const args = ["-p", "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits"];
   // Neuere Versionen: alles, was nachfragen würde, automatisch ablehnen.
   if (opts.flags.has("--permission-prompts")) args.push("--permission-prompts", "none");
-  args.push("--allowedTools", ...ALLOWED_TOOLS, "--disallowedTools", ...DENIED_TOOLS);
+  args.push("--allowedTools", ...ALLOWED_TOOLS, ...(opts.higgsfield ? [opts.higgsfield.toolPrefix] : []), "--disallowedTools", ...DENIED_TOOLS);
   args.push("--mcp-config", opts.mcpConfigPath);
-  if (opts.flags.has("--strict-mcp-config")) args.push("--strict-mcp-config");
-  args.push("--append-system-prompt", opts.append);
+  // Ohne Higgsfield nur der Studio-Server; mit Higgsfield auch die eigenen MCP-Server von Claude Code (Anmeldung liegt dort)
+  if (opts.flags.has("--strict-mcp-config") && !opts.higgsfield) args.push("--strict-mcp-config");
+  args.push("--append-system-prompt", opts.higgsfield ? `${opts.append} ${higgsfieldAppend(opts.higgsfield)}` : opts.append);
   if (opts.model) args.push("--model", opts.model);
   args.push(...(opts.resume ? ["--resume", opts.sessionUuid] : ["--session-id", opts.sessionUuid]));
   return args;
@@ -227,6 +231,7 @@ export async function executeRun(db: DB, runId: number, opts: RunOptions = {}): 
     model: getSettings(db).studio.model || undefined,
     append: systemAppend(project),
     flags: info.flags,
+    higgsfield: higgsfieldFor(db, session),
   });
 
   const child: ChildProcess = (opts.spawnFn ?? spawn)(claudeBin(), args, {

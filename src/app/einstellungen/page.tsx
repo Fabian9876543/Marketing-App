@@ -1,6 +1,14 @@
 import path from "node:path";
 import { connection } from "next/server";
-import { removeVoiceKeyAction, saveSettingsAction, saveVoiceSettingsAction } from "@/app/actions";
+import {
+  checkHiggsfieldAction,
+  removeVoiceKeyAction,
+  saveHiggsfieldSettingsAction,
+  saveSettingsAction,
+  saveVoiceSettingsAction,
+  setupHiggsfieldAction,
+} from "@/app/actions";
+import { HIGGSFIELD_ADD_ARGS } from "@/lib/studio/higgsfield";
 import { SubmitButton } from "@/components/client";
 import { Badge, Flash, PageHeader, flashFrom } from "@/components/ui";
 import { getDb } from "@/lib/db/client";
@@ -275,6 +283,89 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               </SubmitButton>
             </form>
           )}
+        </section>
+
+        <section id="higgsfield" className="card space-y-4 p-4 lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="h2">KI-Bilder und -Videos (Higgsfield)</h2>
+            {
+              {
+                ok: <Badge tone="ok">Verbunden</Badge>,
+                auth: <Badge tone="warn">Anmeldung nötig</Badge>,
+                error: <Badge tone="bad">Nicht erreichbar</Badge>,
+                missing: <Badge>Nicht eingerichtet</Badge>,
+              }[s.higgsfield.detected.status]
+            }
+          </div>
+          <p className="text-sm text-muted">
+            Claude erzeugt im Studio mit Higgsfield KI-Clips und -Bilder, z. B. Stimmungsbilder oder animierte Screenshots. Die Anmeldung und Abrechnung laufen
+            über dein Higgsfield-Abo direkt in Claude Code; die App speichert dafür keinen Schlüssel.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted [overflow-wrap:anywhere]">
+              {s.higgsfield.detected.checkedAt
+                ? `${s.higgsfield.detected.message} · geprüft ${relative(s.higgsfield.detected.checkedAt)}`
+                : "Noch nicht geprüft."}
+            </span>
+            <form action={checkHiggsfieldAction}>
+              <input type="hidden" name="back" value="/einstellungen#higgsfield" />
+              <SubmitButton className="btn py-1 text-xs" pendingText="Prüfe (bis 1 Min.) …">
+                Verbindung prüfen
+              </SubmitButton>
+            </form>
+            {s.higgsfield.detected.status === "missing" && (
+              <form action={setupHiggsfieldAction}>
+                <input type="hidden" name="back" value="/einstellungen#higgsfield" />
+                <SubmitButton className="btn btn-primary py-1 text-xs" pendingText="Richte ein …">
+                  Bei Claude Code einrichten
+                </SubmitButton>
+              </form>
+            )}
+          </div>
+          {s.higgsfield.detected.status !== "ok" && (
+            <div className="space-y-1 rounded-lg bg-surface-2 p-3 text-sm">
+              <p className="font-medium">So verbindest du Higgsfield (einmalig, Higgsfield-Abo nötig):</p>
+              <ol className="list-decimal space-y-1 pl-5 text-muted">
+                <li>
+                  „Bei Claude Code einrichten“ klicken – oder im Terminal: <code className="[overflow-wrap:anywhere]">claude {HIGGSFIELD_ADD_ARGS.join(" ")}</code>
+                </li>
+                <li>
+                  Im Terminal <code>claude</code> starten, <code>/mcp</code> eintippen, „higgsfield“ wählen und „Authenticate“. Im Browser bei Higgsfield anmelden.
+                </li>
+                <li>Hier auf „Verbindung prüfen“ klicken.</li>
+              </ol>
+              <p className="text-xs text-muted">Hast du Higgsfield schon auf claude.ai als Connector verbunden, erkennt die Prüfung das oft auch ohne diese Schritte.</p>
+            </div>
+          )}
+          <form action={saveHiggsfieldSettingsAction} className="space-y-3">
+            <input type="hidden" name="back" value="/einstellungen#higgsfield" />
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="hfEnabled" defaultChecked={s.higgsfield.enabled} /> Claude darf im Studio Higgsfield nutzen
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label" htmlFor="hfMaxCredits">
+                  Höchstens … Credits pro Auftrag
+                </label>
+                <input id="hfMaxCredits" type="number" min={1} max={10000} name="hfMaxCredits" defaultValue={s.higgsfield.maxCredits} className="input" />
+              </div>
+              <div className="space-y-2 pt-1 sm:pt-5">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="hfUnlim" defaultChecked={s.higgsfield.unlim} /> Zuerst unbegrenzte Generierungen des Abos nutzen
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" name="hfAuto" defaultChecked={s.higgsfield.inAutomations} /> Auch in Automationen (sonst nur bei eigenen Aufträgen)
+                </label>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted">
+                Das Budget ist eine feste Vorgabe an Claude, technisch erzwingen kann die App es nicht – deinen Verbrauch siehst du bei Higgsfield. Higgsfield kann
+                hochgeladene Dateien zum Training nutzen; prüfe dort die Datenschutz-Einstellungen, bevor Claude Screenshots hochlädt.
+              </p>
+              <SubmitButton className="btn btn-primary">Speichern</SubmitButton>
+            </div>
+          </form>
         </section>
 
         <section id="worker" className="card space-y-3 p-4 lg:col-span-2">

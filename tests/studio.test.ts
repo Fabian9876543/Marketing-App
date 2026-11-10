@@ -230,6 +230,8 @@ describe("Werkzeuge für Claude (MCP)", () => {
     expect(tools).toEqual([
       "backlog_einlesen",
       "backlog_liste",
+      "datei_hochladen",
+      "datei_laden",
       "erkenntnis_vorschlagen",
       "erkenntnisse",
       "freie_slots",

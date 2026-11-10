@@ -16,7 +16,7 @@ import { getScope } from "@/lib/active-project";
 import { listAutomations } from "@/lib/automation";
 import { getDb } from "@/lib/db/client";
 import type { Project, StudioRun } from "@/lib/db/schema";
-import { workerAlive } from "@/lib/settings";
+import { getSettings, workerAlive, type AppSettings } from "@/lib/settings";
 import { claudeInfo, type ClaudeInfo } from "@/lib/studio/claude";
 import { QUICK_PROMPTS, getSession, listSessions, sessionMessages, sessionRuns, type SessionSummary } from "@/lib/studio/sessions";
 import { studioStatus, type StudioStatus } from "@/lib/studio/workspace";
@@ -64,7 +64,7 @@ export default async function StudioPage({ searchParams }: { searchParams: SP })
         }
       />
       <Flash {...await flashFrom(searchParams)} />
-      <Readiness project={project} status={status} info={info} workerAlive={alive} />
+      <Readiness project={project} status={status} info={info} workerAlive={alive} higgsfield={getSettings(db).higgsfield} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-2">
@@ -116,7 +116,19 @@ function RunBadge({ run }: { run: StudioRun | null }) {
 }
 
 /** Was fehlt noch, damit das Studio arbeiten kann? */
-function Readiness({ project, status, info, workerAlive }: { project: Project; status: StudioStatus; info: ClaudeInfo; workerAlive: boolean }) {
+function Readiness({
+  project,
+  status,
+  info,
+  workerAlive,
+  higgsfield: hf,
+}: {
+  project: Project;
+  status: StudioStatus;
+  info: ClaudeInfo;
+  workerAlive: boolean;
+  higgsfield: AppSettings["higgsfield"];
+}) {
   const items: { ok: boolean; text: ReactNode }[] = [
     {
       ok: info.available,
@@ -134,6 +146,21 @@ function Readiness({ project, status, info, workerAlive }: { project: Project; s
       ok: Boolean(project.brief.audience || project.brief.messages),
       text: project.brief.audience || project.brief.messages ? "Briefing vorhanden" : <Link href={`/projekte/${project.id}?tab=briefing`} className="underline">Briefing ausfüllen – sonst rät Claude</Link>,
     },
+    ...(hf.enabled
+      ? [
+          {
+            ok: hf.detected.status === "ok",
+            text:
+              hf.detected.status === "ok" ? (
+                `Higgsfield freigegeben (höchstens ${hf.maxCredits} Credits pro Auftrag)`
+              ) : (
+                <Link href="/einstellungen#higgsfield" className="underline">
+                  Higgsfield eingeschaltet, aber nicht verbunden
+                </Link>
+              ),
+          },
+        ]
+      : []),
   ];
   const allOk = items.every((i) => i.ok);
   return (

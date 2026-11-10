@@ -165,6 +165,13 @@ Umgesetzt am 07.11.2026:
 - Studio-Werkzeuge `stimmen_liste` und `stimme_erzeugen`: Die MP3 kommt mit Zeitstempeln je Wort nach `studio/public/stimme/`. Den Schlüssel sieht Claude nie.
 - Video-Vorlage Version 2: `voice` je Szene, `voice` und `at` je Dialogzeile, leisere Musik bei Sprecher. Bestehende Projekte werden automatisch aktualisiert; angepasste Vorlagen bekommen eine `.neu`-Fassung zum Übernehmen.
 
+### Ergänzung: KI-Bilder und -Videos mit Higgsfield ✅ umgesetzt (10.11.2026)
+
+- Anbindung über Higgsfields offiziellen MCP-Server in Claude Code: Anmeldung per Browser, Abrechnung über das Higgsfield-Abo, kein Schlüssel in der App.
+- Einstellungen: Status (über `claude mcp list`), Einrichten per Klick, an/aus, Credit-Budget pro Auftrag, unbegrenzte Generierungen zuerst, Automationen nur auf Wunsch.
+- Mit Higgsfield laufen Studio-Aufträge ohne `--strict-mcp-config`, und nur die Higgsfield-Werkzeuge werden zusätzlich freigegeben. Die Wochenanalyse nutzt Higgsfield nie.
+- Neue Studio-Werkzeuge `datei_laden` (Ergebnis nach `studio/public/ki/`) und `datei_hochladen` (eigene Screenshots als Vorlage): nur Medien, nur https, keine lokalen Adressen.
+
 ### Später (optional)
 
 LinkedIn-Karussells (PDF), Antwortvorschläge für Kommentare, Mac automatisch aufwecken, Browser-Hilfe für öffentliche TikTok-Posts, weitere Projekte.

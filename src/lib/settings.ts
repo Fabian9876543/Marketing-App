@@ -59,6 +59,27 @@ export const appSettingsSchema = z.object({
       model: z.string().max(60).default("eleven_multilingual_v2"),
     })
     .default({ model: "eleven_multilingual_v2" }),
+  higgsfield: z
+    .object({
+      /** Claude darf im Studio Higgsfield nutzen (KI-Bilder und -Videos) */
+      enabled: z.boolean().default(false),
+      /** Höchstens so viele Credits pro Studio-Auftrag (Anweisung an Claude) */
+      maxCredits: z.number().int().min(1).max(10000).default(60),
+      /** Erst die unbegrenzten Generierungen des Abos nutzen */
+      unlim: z.boolean().default(true),
+      /** Auch in automatischen Läufen (sonst nur, wenn du selbst einen Auftrag gibst) */
+      inAutomations: z.boolean().default(false),
+      /** Ergebnis von „claude mcp list“ */
+      detected: z
+        .object({
+          server: z.string().default(""),
+          status: z.enum(["ok", "auth", "error", "missing"]).default("missing"),
+          message: z.string().default(""),
+          checkedAt: z.number().nullable().default(null),
+        })
+        .default({ server: "", status: "missing", message: "", checkedAt: null }),
+    })
+    .default({ enabled: false, maxCredits: 60, unlim: true, inAutomations: false, detected: { server: "", status: "missing", message: "", checkedAt: null } }),
   /** Wird an die Caption gehängt, wenn ein Video KI-Inhalte enthält und die Plattform keine eigene Kennzeichnung per API hat. */
   aiDisclosure: z.string().max(200).default("Mit KI erstellt."),
 });

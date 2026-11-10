@@ -1,6 +1,6 @@
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { upsertAccount } from "@/lib/accounts";
 import {
   CATCH_UP_MS,
@@ -163,6 +163,10 @@ describe("Freie Slots füllen", () => {
     for (const slug of ["a-erster", "b-zweiter", "c-dritter"]) makeShort(p.folder, slug);
     await importBacklog(db, p);
     const now = new Date("2026-11-09T07:00:00Z"); // Mo 08:00
+    // Posts dürfen nicht in der Vergangenheit liegen – die Uhr für diesen Test auf „now“ stellen
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(now);
+    onTestFinished(() => void vi.useRealTimers());
     addSlot(db, p.id, "09:00", [1, 2, 3, 4, 5, 6, 7]);
     addSlot(db, p.id, "19:00", [1, 2, 3, 4, 5, 6, 7]);
 

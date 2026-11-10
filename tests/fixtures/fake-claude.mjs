@@ -9,6 +9,15 @@ import { execFileSync } from "node:child_process";
 const args = process.argv.slice(2);
 if (args.includes("--version")) { console.log("9.9.9 (Claude Code, Test)"); process.exit(0); }
 if (args.includes("--help")) { console.log("Options:\n  --permission-prompts <target>\n  --strict-mcp-config\n  --session-id <uuid>\n  --resume [value]"); process.exit(0); }
+if (args[0] === "mcp") {
+  // „claude mcp list“ / „claude mcp add …“ für die Higgsfield-Erkennung
+  if (process.env.FAKE_MCP_LOG) fs.appendFileSync(process.env.FAKE_MCP_LOG, args.join(" ") + "\n");
+  const listFile = process.env.FAKE_MCP_LIST_FILE;
+  const list = listFile && fs.existsSync(listFile) ? fs.readFileSync(listFile, "utf8") : process.env.FAKE_MCP_LIST;
+  if (args[1] === "list") console.log(list ?? "No MCP servers configured. Use `claude mcp add` to add a server.");
+  if (args[1] === "add") console.log(`Added HTTP MCP server ${args[args.length - 2]} with URL: ${args[args.length - 1]} to user config`);
+  process.exit(0);
+}
 if (process.env.FAKE_ARGS_FILE) fs.appendFileSync(process.env.FAKE_ARGS_FILE, JSON.stringify({ args, cwd: process.cwd(), envKeys: Object.keys(process.env) }) + "\n");
 
 let prompt = "";

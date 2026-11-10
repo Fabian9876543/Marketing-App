@@ -50,6 +50,8 @@ import { startAnalysis } from "@/lib/analysis";
 import { refreshDueInsights } from "@/lib/analytics/store";
 import { addManualLearning, decideLearning, removeLearning } from "@/lib/learnings";
 import { listVoices, setElevenLabsKey } from "@/lib/voice/elevenlabs";
+import { addHiggsfieldToClaude, checkHiggsfield } from "@/lib/studio/higgsfield";
+import { childEnv } from "@/lib/studio/runner";
 import { appSettingsSchema, getSettings, updateSettings } from "@/lib/settings";
 import { addSlot, listSlots, nextFreeSlot, removeSlot, toggleSlot } from "@/lib/slots";
 import { formatDateTime, fromLocalInput, isValidTimezone } from "@/lib/time";
@@ -371,6 +373,7 @@ export async function saveSettingsAction(form: FormData) {
         maxParallel: Number(form.get("studioMaxParallel") ?? current.studio.maxParallel),
       },
       voice: current.voice,
+      higgsfield: current.higgsfield,
       analytics: {
         fetchEveryHours: Number(form.get("anFetchEveryHours") ?? current.analytics.fetchEveryHours),
         weekly: form.get("anWeekly") === "on",
@@ -609,5 +612,36 @@ export async function saveProjectVoicesAction(form: FormData) {
     const project = formProject(form);
     updateVoices(getDb(), project.id, { main: voiceRef(str(form, "mainVoice")), second: voiceRef(str(form, "secondVoice")) });
     return "Stimmen gespeichert – stehen jetzt auch in PROJEKT.md";
+  });
+}
+
+/* ---------- Higgsfield (KI-Bilder und -Videos) ---------- */
+
+export async function saveHiggsfieldSettingsAction(form: FormData) {
+  await attempt(form, "/einstellungen#higgsfield", () => {
+    const enabled = form.get("hfEnabled") === "on";
+    const maxCredits = Math.round(Number(form.get("hfMaxCredits")));
+    if (!(maxCredits >= 1 && maxCredits <= 10000)) throw new Error("Budget zwischen 1 und 10.000 Credits angeben");
+    updateSettings(getDb(), {
+      higgsfield: { enabled, maxCredits, unlim: form.get("hfUnlim") === "on", inAutomations: form.get("hfAuto") === "on" },
+    });
+    return enabled ? `Higgsfield im Studio eingeschaltet – höchstens ${maxCredits} Credits pro Auftrag` : "Higgsfield im Studio ausgeschaltet";
+  });
+}
+
+export async function checkHiggsfieldAction(form: FormData) {
+  await attempt(form, "/einstellungen#higgsfield", async () => {
+    const d = await checkHiggsfield(getDb(), { env: childEnv() });
+    if (d.status === "ok") return `Higgsfield ist verbunden (${d.server})`;
+    throw new Error(d.message);
+  });
+}
+
+export async function setupHiggsfieldAction(form: FormData) {
+  await attempt(form, "/einstellungen#higgsfield", async () => {
+    await addHiggsfieldToClaude(childEnv());
+    const d = await checkHiggsfield(getDb(), { env: childEnv() });
+    if (d.status === "ok") return "Higgsfield ist eingerichtet und verbunden";
+    return "Higgsfield ist bei Claude Code eingetragen – jetzt einmal anmelden (Anleitung unten)";
   });
 }

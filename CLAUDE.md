@@ -35,6 +35,9 @@ Der Nutzer spricht Deutsch. Oberfläche, Fehlermeldungen und Doku sind auf Deuts
   Projektstimmen in `projects.voices`, Werkzeuge `voicesTool`/`speakTool`. Ändert sich `vorlagen/studio/src/Short.tsx` oder `README.md`,
   `TEMPLATE_VERSION` in `workspace.ts` erhöhen; Projekte merken sich die Prüfsummen in `studio/.vorlage.json`
   (`upgradeTemplate` ersetzt unveränderte Dateien, angepasste bekommen eine `.neu`-Fassung).
+- Higgsfield: kein eigener API-Client – Claude Code nutzt Higgsfields MCP-Server (eigener Eintrag oder claude.ai-Connector). `src/lib/studio/higgsfield.ts`
+  erkennt ihn per `claude mcp list`; `higgsfieldFor` entscheidet pro Auftrag (Einstellung, Automationen, nie in der Analyse). Dann ohne `--strict-mcp-config`
+  und mit dessen Werkzeug-Präfix in `--allowedTools`. Dateien bewegt Claude nur über `datei_laden`/`datei_hochladen` (`src/lib/studio/files.ts`, Schutz gegen lokale Adressen).
 - Seiten, die die DB lesen, rufen zuerst `await connection()` auf (sonst prerendert Next sie zur Build-Zeit).
 - Server-Aktionen in `src/app/actions.ts` geben Rückmeldung per Redirect mit `?ok=` oder `?fehler=`.
 - Zeiten werden in UTC gespeichert und in der Zeitzone aus den Einstellungen angezeigt (`src/lib/time.ts`, Luxon).

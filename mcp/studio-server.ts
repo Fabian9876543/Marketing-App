@@ -10,6 +10,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { getDb } from "../src/lib/db/client";
 import { getProject } from "../src/lib/projects";
+import { downloadTool, uploadTool } from "../src/lib/studio/files";
 import {
   accountsTool,
   backlogTool,
@@ -146,6 +147,35 @@ server.registerTool(
     },
   },
   async (args) => safe(() => speakTool(db, project(), args))(),
+);
+
+server.registerTool(
+  "datei_laden",
+  {
+    title: "Bild/Video/Audio herunterladen",
+    description:
+      "Lädt ein Bild, Video oder Audio von einer https-Adresse (z. B. ein Higgsfield-Ergebnis) nach studio/public/ki/ und liefert den Pfad für die Szenen-JSON.",
+    inputSchema: {
+      url: z.string().url().describe("https-Adresse der Datei"),
+      datei: z.string().min(1).max(100).describe("Dateiname ohne Endung, z. B. 2026-11-10-praxis-intro"),
+    },
+  },
+  async (args) => safe(() => downloadTool(project(), args))(),
+);
+
+server.registerTool(
+  "datei_hochladen",
+  {
+    title: "Datei hochladen",
+    description:
+      "Lädt ein Bild, Video oder Audio aus dem Projekt (referenzen/, backlog/ oder studio/public/) per PUT an eine vorbereitete Upload-Adresse, z. B. die upload_url von Higgsfields media_upload. Danach beim Dienst bestätigen (media_confirm).",
+    inputSchema: {
+      datei: z.string().min(1).describe("Pfad im Projektordner, z. B. referenzen/screenshot/start.png"),
+      upload_url: z.string().url().describe("Vorbereitete https-Upload-Adresse"),
+      content_type: z.string().optional().describe("MIME-Typ, wie bei media_upload angegeben (Standard: aus der Endung)"),
+    },
+  },
+  async (args) => safe(() => uploadTool(project(), args))(),
 );
 
 await server.connect(new StdioServerTransport());

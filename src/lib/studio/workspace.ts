@@ -244,6 +244,14 @@ Nur wenn die Aufgabe nach Sprecher oder Stimmen verlangt oder das Briefing es vo
 4. In meta.json \`"aiGenerated": true\` – Pflicht bei KI-Stimmen.
 - Nur Stimmen aus \`stimmen_liste\`. Keine echten Personen nachahmen.
 
+## KI-Bilder und -Videos (Higgsfield)
+Nur wenn der Auftrag es freigibt (Hinweis „Higgsfield ist freigegeben“) und die Higgsfield-Werkzeuge da sind.
+- Echte Screens und Aufnahmen aus \`referenzen/\` gehen vor. KI-Clips eignen sich für Stimmungsbilder, Szenen ohne echtes Material und animierte Screenshots (Bild zu Video).
+- Vor jeder Generierung die Kosten mit \`get_cost: true\` prüfen und das Budget aus dem Auftrag einhalten. Hochkant (9:16) erzeugen.
+- Eigene Dateien als Vorlage: \`media_upload\` (Higgsfield) → \`datei_hochladen\` (studio) → \`media_confirm\` (Higgsfield).
+- Ergebnisse mit \`datei_laden\` nach \`studio/public/ki/\` holen und in Szenen als \`"src": "ki/<datei>"\` verwenden.
+- KI-Bilder und -Videos immer mit \`"aiGenerated": true\` in meta.json. Keine echten Personen, Marken oder Logos fremder Firmen erzeugen.
+
 ## Ausgabe-Vertrag
 Jeder Short ist ein eigener Ordner: \`backlog/<JJJJ-MM-TT>-<kurzer-slug>/\` mit
 - \`video.mp4\` (Pflicht)
@@ -290,5 +298,7 @@ Jeder Short ist ein eigener Ordner: \`backlog/<JJJJ-MM-TT>-<kurzer-slug>/\` mit
 - \`erkenntnis_vorschlagen\` – neue Erkenntnis zur Bestätigung vorschlagen
 - \`stimmen_liste\` – Stimmen des Projekts und des ElevenLabs-Kontos
 - \`stimme_erzeugen\` – Sprechertext als MP3 erzeugen (kostet Guthaben)
+- \`datei_laden\` – Bild, Video oder Audio von einer https-Adresse nach \`studio/public/ki/\` holen
+- \`datei_hochladen\` – Projektdatei an eine Upload-Adresse schicken (z. B. für Higgsfield)
 `;
 }

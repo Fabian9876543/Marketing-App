@@ -226,6 +226,28 @@ Damit kann Claude Texte einsprechen lassen: einen Erzähler oder gestellte Telef
 
 Bestehende Projekte bekommen die erweiterte Video-Vorlage beim nächsten Studio-Auftrag automatisch. Hat Claude die Vorlage in einem Projekt schon angepasst, liegt die neue Fassung als `studio/src/Short.tsx.neu` daneben. Claude übernimmt die Neuerungen dann selbst.
 
+## KI-Bilder und -Videos mit Higgsfield
+
+Damit erzeugt Claude im Studio KI-Clips und -Bilder über dein Higgsfield-Abo, zum Beispiel Stimmungsbilder, Szenen ohne echtes Material oder animierte Screenshots (Bild zu Video).
+Angebunden wird Higgsfields offizieller MCP-Server direkt in Claude Code. Die App speichert dafür keinen Schlüssel, und abgerechnet wird über dein Higgsfield-Konto.
+
+1. **Einstellungen → KI-Bilder und -Videos (Higgsfield) → „Bei Claude Code einrichten“**.
+   Das trägt den Server ein, wie dieser Befehl im Terminal: `claude mcp add --transport http --scope user higgsfield https://mcp.higgsfield.ai/mcp`.
+2. **Einmal anmelden:** im Terminal `claude` starten, `/mcp` eintippen, „higgsfield“ wählen, „Authenticate“, im Browser bei Higgsfield anmelden. Danach `/exit`.
+   Hast du Higgsfield schon auf claude.ai als Connector verbunden, erkennt die App das oft auch ohne diese Schritte.
+3. In der App **„Verbindung prüfen“**. Steht dort „Verbunden“, kannst du Higgsfield einschalten.
+4. Einstellen:
+   - **Höchstens … Credits pro Auftrag:** Claude prüft vor jeder Generierung die Kosten und hält sich an das Budget. Technisch erzwingen kann die App das nicht – deinen Verbrauch siehst du bei Higgsfield.
+   - **Zuerst unbegrenzte Generierungen des Abos nutzen**, wenn dein Abo welche hat.
+   - **Auch in Automationen:** standardmäßig aus, damit tägliche Läufe keine Credits verbrauchen, ohne dass du es willst.
+5. Im Studio zum Beispiel: *„Mach einen Short mit einem KI-Clip als Einstieg: eine Arztpraxis abends, das Telefon klingelt, niemand geht ran.“*
+   Claude erzeugt den Clip bei Higgsfield, lädt ihn mit `datei_laden` nach `studio/public/ki/` und baut ihn ins Video ein. Eigene Screenshots schickt es mit `datei_hochladen` als Vorlage an Higgsfield.
+
+Gut zu wissen:
+- KI-Bilder und -Videos werden immer als KI-generiert gekennzeichnet.
+- Higgsfield kann Prompts und hochgeladene Dateien zum Training nutzen. Prüfe dort die Datenschutz-Einstellungen, bevor Claude Screenshots hochlädt.
+- Die Anmeldung läuft irgendwann ab. Dann meldet Higgsfield im Studio einen Anmeldefehler, und du wiederholst Schritt 2.
+
 ## Automationen: jeden Tag neue Shorts
 
 Hat Claude im Studio einen Short gebaut, der dir gefällt, klickst du im Chat auf **„Als Automation speichern“**. Daraus wird ein **Rezept**: dein Auftrag, deine Rückmeldungen aus dem Chat und der gelungene Short als Vorbild. Du kannst das Rezept vor dem Speichern anpassen.
