@@ -146,23 +146,38 @@ export async function downloadTool(project: Project, input: { url: string; datei
   return lines.join("\n");
 }
 
+/**
+ * Pfad im Projektordner prüfen: nur unterhalb der erlaubten Ordner, keine versteckten Dateien, nur Bilder/Videos/Audio.
+ * Liefert absoluten Pfad, relativen Pfad und Endung.
+ */
+export function resolveProjectMedia(
+  project: Pick<Project, "folder">,
+  datei: string,
+  roots: string[] = ["referenzen", "backlog", "studio/public"],
+): { file: string; rel: string; ext: string } {
+  const root = path.resolve(project.folder);
+  const file = path.resolve(root, datei.replace(/^\/+/, ""));
+  const rel = path.relative(root, file);
+  const relPosix = rel.split(path.sep).join("/");
+  const allowed = roots.some((r) => relPosix === r || relPosix.startsWith(`${r}/`));
+  if (rel.startsWith("..") || path.isAbsolute(rel) || !allowed || relPosix.split("/").some((p) => p.startsWith("."))) {
+    throw new FileToolError(`Nur Dateien aus ${roots.map((r) => `${r}/`).join(", ")} dieses Projekts`);
+  }
+  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) throw new FileToolError(`Datei nicht gefunden: ${relPosix}`);
+  const ext = path.extname(file).slice(1).toLowerCase();
+  if (!EXT_MIME[ext]) throw new FileToolError("Nur Bilder, Videos und Audio");
+  return { file, rel: relPosix, ext };
+}
+
+export const mimeOf = (ext: string) => EXT_MIME[ext] ?? "application/octet-stream";
+
 /** Lädt eine Projektdatei (Referenz, Bild aus studio/public, Short) per PUT an eine vorbereitete Upload-Adresse. */
 export async function uploadTool(
   project: Project,
   input: { datei: string; upload_url: string; content_type?: string },
   opts: FileToolOptions = {},
 ): Promise<string> {
-  const root = path.resolve(project.folder);
-  const file = path.resolve(root, input.datei.replace(/^\/+/, ""));
-  const rel = path.relative(root, file);
-  const parts = rel.split(path.sep);
-  const allowed = parts[0] === "referenzen" || parts[0] === "backlog" || (parts[0] === "studio" && parts[1] === "public");
-  if (rel.startsWith("..") || path.isAbsolute(rel) || !allowed || parts.some((p) => p.startsWith("."))) {
-    throw new FileToolError("Nur Dateien aus referenzen/, backlog/ oder studio/public/ dieses Projekts");
-  }
-  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) throw new FileToolError(`Datei nicht gefunden: ${rel}`);
-  const ext = path.extname(file).slice(1).toLowerCase();
-  if (!EXT_MIME[ext]) throw new FileToolError("Nur Bilder, Videos und Audio");
+  const { file, rel, ext } = resolveProjectMedia(project, input.datei);
   const size = fs.statSync(file).size;
   if (size > MAX_UPLOAD_BYTES) throw new FileToolError(`Datei zu groß (${mb(size)}, höchstens ${mb(MAX_UPLOAD_BYTES)})`);
   const url = checkRemoteUrl(input.upload_url, opts);

@@ -10,6 +10,8 @@ export type ConnectedAccount = {
   tokens: StoredTokens;
   /** Bis wann neu verbunden werden muss; null = unbegrenzt */
   reconnectBy?: Date | null;
+  /** Meta: langlebiges Nutzer-Token für die Werbebibliothek (wird getrennt verschlüsselt gespeichert) */
+  metaUserToken?: { token: string; expiresAt: number | null };
 };
 
 /** Anmeldung bei einer Plattform (OAuth 2.0 Authorization Code). */

@@ -13,6 +13,7 @@ import { writeHeartbeat } from "@/lib/settings";
 import { autoFillProject } from "@/lib/autoplan";
 import { runDueAutomations } from "@/lib/automation";
 import { runDueAnalyses } from "@/lib/analysis";
+import { runDueResearch } from "@/lib/research/run";
 import { refreshDueInsights } from "@/lib/analytics/store";
 import { StudioQueue } from "@/lib/studio/runner";
 import { KeepAwake } from "@/lib/worker/awake";
@@ -61,6 +62,7 @@ async function tick() {
     // Fällige Automationen und Wochenanalysen starten neue Studio-Aufträge
     runDueAutomations(db);
     runDueAnalyses(db);
+    runDueResearch(db);
     const report = await engine.tick();
     const soon = report.nextDueAt && report.nextDueAt.getTime() - Date.now() < AWAKE_BEFORE_MS;
     awake.set(Boolean(soon) || studio.active > 0);

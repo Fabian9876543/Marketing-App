@@ -11,6 +11,7 @@ import { z } from "zod";
 import { getDb } from "../src/lib/db/client";
 import { getProject } from "../src/lib/projects";
 import { downloadTool, uploadTool } from "../src/lib/studio/files";
+import { adLibraryTool, framesTool, instagramTool, patternTool, researchSourcesTool, transcriptTool, youtubeTool } from "../src/lib/studio/research-tools";
 import {
   accountsTool,
   backlogTool,
@@ -176,6 +177,95 @@ server.registerTool(
     },
   },
   async (args) => safe(() => uploadTool(project(), args))(),
+);
+
+/* ---------- Recherche ---------- */
+
+server.registerTool(
+  "recherche_quellen",
+  {
+    title: "Recherche-Quellen",
+    description: "Stichwörter, Konkurrenz-Konten und Beispiele (referenzen, Inspiration) des Projekts – und welche Recherche-Werkzeuge verfügbar sind.",
+  },
+  safe(() => researchSourcesTool(db, project())),
+);
+
+server.registerTool(
+  "werbebibliothek_suchen",
+  {
+    title: "Meta-Werbebibliothek durchsuchen",
+    description:
+      "Sucht Anzeigen auf Facebook und Instagram, die in Deutschland laufen oder liefen: Texte, Überschriften, Laufzeit, Plattformen, EU-Reichweite, Zielgruppe und ein Link zur Anzeige. Lange laufende Anzeigen funktionieren meist. Bilder und Videos liefert die Schnittstelle nicht.",
+    inputSchema: {
+      suchbegriff: z.string().max(100).optional().describe("Stichwort, z. B. „Telefonassistent Praxis“"),
+      seiten_ids: z.array(z.string()).max(10).optional().describe("Facebook-Seiten-IDs eines Werbetreibenden"),
+      nur_aktive: z.boolean().optional().describe("Nur laufende Anzeigen (Standard: ja)"),
+      anzahl: z.number().int().min(1).max(100).optional().describe("Wie viele (Standard 40)"),
+    },
+  },
+  async (args) => safe(() => adLibraryTool(db, project(), args))(),
+);
+
+server.registerTool(
+  "instagram_konto_ansehen",
+  {
+    title: "Instagram-Konto ansehen",
+    description:
+      "Die letzten Beiträge eines öffentlichen Instagram-Business- oder Creator-Kontos mit Views, Likes und Kommentaren – sortiert danach, was im Verhältnis zum Konto am besten lief.",
+    inputSchema: {
+      benutzername: z.string().min(1).max(60).describe("Instagram-Name, z. B. praxis.digital"),
+      anzahl: z.number().int().min(5).max(50).optional().describe("Wie viele Beiträge (Standard 30)"),
+    },
+  },
+  async (args) => safe(() => instagramTool(db, project(), args))(),
+);
+
+server.registerTool(
+  "youtube_shorts_suchen",
+  {
+    title: "YouTube-Shorts suchen",
+    description: "Öffentliche YouTube-Shorts zu einem Suchbegriff (Deutschland), nach Views sortiert. Kostet einen Teil des YouTube-Tageskontingents – sparsam nutzen.",
+    inputSchema: {
+      suchbegriff: z.string().min(2).max(100),
+      tage: z.number().int().min(7).max(365).optional().describe("Zeitraum in Tagen (Standard 90)"),
+    },
+  },
+  async (args) => safe(() => youtubeTool(db, project(), args))(),
+);
+
+server.registerTool(
+  "beispiel_einzelbilder",
+  {
+    title: "Beispielvideo in Bilder zerlegen",
+    description:
+      "Zerlegt ein Beispielvideo aus referenzen/ in Einzelbilder: die ersten Sekunden einzeln (Hook) und eine Übersicht über das ganze Video. Die Bilder danach mit Read ansehen.",
+    inputSchema: { datei: z.string().min(1).describe("Pfad im Projekt, z. B. referenzen/inspiration/beispiel.mp4") },
+  },
+  async (args) => safe(() => framesTool(project(), args))(),
+);
+
+server.registerTool(
+  "beispiel_transkript",
+  {
+    title: "Gesprochenes mitschreiben",
+    description: "Schreibt mit, was in einem Beispielvideo oder einer Audiodatei aus referenzen/ gesprochen wird – mit Zeitangaben (ElevenLabs).",
+    inputSchema: { datei: z.string().min(1).describe("Pfad im Projekt, z. B. referenzen/inspiration/beispiel.mp4") },
+  },
+  async (args) => safe(() => transcriptTool(db, project(), args))(),
+);
+
+server.registerTool(
+  "muster_vorschlagen",
+  {
+    title: "Muster vorschlagen",
+    description:
+      "Schlägt ein Muster aus der Recherche vor – als konkrete Anweisung für eigene Shorts (z. B. „Demo-Anruf ab Sekunde 2 statt Erklärung“). Gilt erst, wenn der Mensch es bestätigt; dann steht es in PROJEKT.md.",
+    inputSchema: {
+      text: z.string().min(5).max(300),
+      begruendung: z.string().max(600).describe("Welche Beispiele, welcher Hinweis auf Erfolg (Laufzeit, Views im Verhältnis zum Konto …)"),
+    },
+  },
+  async (args) => safe(() => patternTool(db, project(), args))(),
 );
 
 await server.connect(new StdioServerTransport());

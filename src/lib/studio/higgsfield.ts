@@ -93,10 +93,10 @@ export async function addHiggsfieldToClaude(env?: NodeJS.ProcessEnv): Promise<st
 export type HiggsfieldUse = { toolPrefix: string; maxCredits: number; unlim: boolean } | null;
 
 /** Darf dieser Studio-Auftrag Higgsfield nutzen? (eingeschaltet, erkannt, und bei Automationen ausdrücklich erlaubt) */
-export function higgsfieldFor(db: DB, session: { automationId: number | null; analysis: boolean }): HiggsfieldUse {
+export function higgsfieldFor(db: DB, session: { automationId: number | null; analysis: boolean; research?: boolean }): HiggsfieldUse {
   const h = getSettings(db).higgsfield;
   if (!h.enabled || !h.detected.server || h.detected.status === "missing") return null;
-  if (session.analysis) return null;
+  if (session.analysis || session.research) return null;
   if (session.automationId && !h.inAutomations) return null;
   return { toolPrefix: mcpToolPrefix(h.detected.server), maxCredits: h.maxCredits, unlim: h.unlim };
 }

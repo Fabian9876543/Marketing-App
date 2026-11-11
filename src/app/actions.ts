@@ -52,6 +52,8 @@ import { addManualLearning, decideLearning, removeLearning } from "@/lib/learnin
 import { listVoices, setElevenLabsKey } from "@/lib/voice/elevenlabs";
 import { addHiggsfieldToClaude, checkHiggsfield } from "@/lib/studio/higgsfield";
 import { childEnv } from "@/lib/studio/runner";
+import { exchangeLongLived, searchAds, setMetaUserToken, adLibraryTokens } from "@/lib/research/meta";
+import { startResearch } from "@/lib/research/run";
 import { appSettingsSchema, getSettings, updateSettings } from "@/lib/settings";
 import { addSlot, listSlots, nextFreeSlot, removeSlot, toggleSlot } from "@/lib/slots";
 import { formatDateTime, fromLocalInput, isValidTimezone } from "@/lib/time";
@@ -374,6 +376,7 @@ export async function saveSettingsAction(form: FormData) {
       },
       voice: current.voice,
       higgsfield: current.higgsfield,
+      research: current.research,
       analytics: {
         fetchEveryHours: Number(form.get("anFetchEveryHours") ?? current.analytics.fetchEveryHours),
         weekly: form.get("anWeekly") === "on",
@@ -557,14 +560,15 @@ export async function startAnalysisAction(form: FormData) {
 export async function decideLearningAction(form: FormData) {
   await attempt(form, "/zahlen", () => {
     const decision = form.get("decision") === "rejected" ? "rejected" : "accepted";
-    decideLearning(getDb(), num(form, "learningId"), decision, str(form, "text"));
-    return decision === "accepted" ? "Erkenntnis übernommen – steht jetzt in PROJEKT.md und gilt für neue Shorts" : "Erkenntnis abgelehnt";
+    const l = decideLearning(getDb(), num(form, "learningId"), decision, str(form, "text"));
+    const what = l.source === "research" ? "Muster" : "Erkenntnis";
+    return decision === "accepted" ? `${what} übernommen – steht jetzt in PROJEKT.md und gilt für neue Shorts` : `${what} abgelehnt`;
   });
 }
 
 export async function addLearningAction(form: FormData) {
   await attempt(form, "/zahlen", () => {
-    addManualLearning(getDb(), formProject(form).id, str(form, "text"));
+    addManualLearning(getDb(), formProject(form).id, str(form, "text"), form.get("source") === "research" ? "research" : "manual");
     return "Erkenntnis hinzugefügt – steht jetzt in PROJEKT.md";
   });
 }
@@ -643,5 +647,80 @@ export async function setupHiggsfieldAction(form: FormData) {
     const d = await checkHiggsfield(getDb(), { env: childEnv() });
     if (d.status === "ok") return "Higgsfield ist eingerichtet und verbunden";
     return "Higgsfield ist bei Claude Code eingetragen – jetzt einmal anmelden (Anleitung unten)";
+  });
+}
+
+/* ---------- Recherche ---------- */
+
+const lines = (form: FormData, key: string, clean: (s: string) => string = (s) => s) =>
+  [...new Set(str(form, key).split(/[\n,;]+/).map((l) => clean(l.trim())).filter(Boolean))].slice(0, 20);
+
+export async function saveResearchSourcesAction(form: FormData) {
+  await attempt(form, "/recherche", () => {
+    const project = formProject(form);
+    const instagram = lines(form, "instagram", (s) => s.replace(/^@/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//, "").replace(/\/.*$/, ""));
+    const bad = instagram.find((u) => !/^[A-Za-z0-9._]{1,30}$/.test(u));
+    if (bad) throw new Error(`Ungültiger Instagram-Name: ${bad}`);
+    const metaPages = lines(form, "metaPages", (s) => s.match(/(\d{5,})/)?.[1] ?? s);
+    const badPage = metaPages.find((p) => !/^\d+$/.test(p));
+    if (badPage) throw new Error(`Facebook-Seiten bitte als Zahl (Seiten-ID) angeben: ${badPage}`);
+    getDb()
+      .update(projects)
+      .set({ research: { keywords: lines(form, "keywords"), instagram, metaPages } })
+      .where(eq(projects.id, project.id))
+      .run();
+    return "Quellen gespeichert";
+  });
+}
+
+export async function startResearchAction(form: FormData) {
+  let target = backTo(form, "/recherche");
+  let msg: { ok?: string; error?: string } = {};
+  try {
+    const { session } = startResearch(getDb(), formProject(form).id);
+    target = `/studio?chat=${session.id}`;
+  } catch (err) {
+    msg = { error: (err as Error).message };
+  }
+  finish(target, msg);
+}
+
+export async function saveResearchSettingsAction(form: FormData) {
+  await attempt(form, "/einstellungen#recherche", async () => {
+    const db = getDb();
+    const every = str(form, "researchEvery");
+    if (every === "off" || every === "week" || every === "month") updateSettings(db, { research: { every } });
+    const token = str(form, "metaToken").trim();
+    if (token) {
+      const long = await exchangeLongLived(token);
+      await searchAds(long.token, { terms: "Telefon", limit: 1 }); // prüft den Zugang
+      await setMetaUserToken(db, long.token, { expiresAt: long.expiresAt, source: "manual" });
+      return "Zugang zur Werbebibliothek gespeichert und geprüft";
+    }
+    return "Recherche-Einstellungen gespeichert";
+  });
+}
+
+export async function checkAdLibraryAction(form: FormData) {
+  await attempt(form, "/einstellungen#recherche", async () => {
+    const tokens = await adLibraryTokens(getDb());
+    if (!tokens.length) throw new Error("Kein Meta-Zugang: Instagram verbinden oder ein Token hinterlegen");
+    const errors: string[] = [];
+    for (const t of tokens) {
+      try {
+        await searchAds(t.token, { terms: "Telefon", limit: 1 });
+        return `Werbebibliothek erreichbar (über ${t.label})`;
+      } catch (err) {
+        errors.push(`${t.label}: ${(err as Error).message}`);
+      }
+    }
+    throw new Error(errors.join(" · "));
+  });
+}
+
+export async function removeMetaTokenAction(form: FormData) {
+  await attempt(form, "/einstellungen#recherche", async () => {
+    await setMetaUserToken(getDb(), null);
+    return "Meta-Token entfernt";
   });
 }

@@ -252,6 +252,11 @@ Nur wenn der Auftrag es freigibt (Hinweis „Higgsfield ist freigegeben“) und 
 - Ergebnisse mit \`datei_laden\` nach \`studio/public/ki/\` holen und in Szenen als \`"src": "ki/<datei>"\` verwenden.
 - KI-Bilder und -Videos immer mit \`"aiGenerated": true\` in meta.json. Keine echten Personen, Marken oder Logos fremder Firmen erzeugen.
 
+## Recherche und Beispiele
+- Beispiele anderer (Werbebibliothek, Instagram, YouTube, \`referenzen/inspiration\`) dienen nur als Orientierung: Prinzipien ableiten, nie Texte, Slogans, Bilder, Musik oder Figuren übernehmen.
+- Bestätigte Muster stehen in \`PROJEKT.md\` unter „Muster aus Beispielen und Recherche“. Neue Muster nur mit \`muster_vorschlagen\`.
+- Fremde Videos nicht herunterladen. Visuell analysieren nur, was der Mensch in \`referenzen/\` abgelegt hat.
+
 ## Ausgabe-Vertrag
 Jeder Short ist ein eigener Ordner: \`backlog/<JJJJ-MM-TT>-<kurzer-slug>/\` mit
 - \`video.mp4\` (Pflicht)
@@ -300,5 +305,8 @@ Jeder Short ist ein eigener Ordner: \`backlog/<JJJJ-MM-TT>-<kurzer-slug>/\` mit
 - \`stimme_erzeugen\` – Sprechertext als MP3 erzeugen (kostet Guthaben)
 - \`datei_laden\` – Bild, Video oder Audio von einer https-Adresse nach \`studio/public/ki/\` holen
 - \`datei_hochladen\` – Projektdatei an eine Upload-Adresse schicken (z. B. für Higgsfield)
+- \`recherche_quellen\`, \`werbebibliothek_suchen\`, \`instagram_konto_ansehen\`, \`youtube_shorts_suchen\` – Recherche
+- \`beispiel_einzelbilder\`, \`beispiel_transkript\` – Beispielvideos auswerten
+- \`muster_vorschlagen\` – Muster aus der Recherche zur Bestätigung vorschlagen
 `;
 }

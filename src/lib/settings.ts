@@ -59,6 +59,12 @@ export const appSettingsSchema = z.object({
       model: z.string().max(60).default("eleven_multilingual_v2"),
     })
     .default({ model: "eleven_multilingual_v2" }),
+  research: z
+    .object({
+      /** Recherche automatisch starten: nie, jede Woche oder alle 4 Wochen */
+      every: z.enum(["off", "week", "month"]).default("off"),
+    })
+    .default({ every: "off" }),
   higgsfield: z
     .object({
       /** Claude darf im Studio Higgsfield nutzen (KI-Bilder und -Videos) */

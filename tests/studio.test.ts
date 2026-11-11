@@ -230,16 +230,23 @@ describe("Werkzeuge für Claude (MCP)", () => {
     expect(tools).toEqual([
       "backlog_einlesen",
       "backlog_liste",
+      "beispiel_einzelbilder",
+      "beispiel_transkript",
       "datei_hochladen",
       "datei_laden",
       "erkenntnis_vorschlagen",
       "erkenntnisse",
       "freie_slots",
+      "instagram_konto_ansehen",
       "konten_liste",
+      "muster_vorschlagen",
       "projekt_briefing",
+      "recherche_quellen",
       "statistik",
       "stimme_erzeugen",
       "stimmen_liste",
+      "werbebibliothek_suchen",
+      "youtube_shorts_suchen",
       "zur_freigabe_einplanen",
     ]);
     const stats = await client.callTool({ name: "statistik", arguments: { tage: 7 } });

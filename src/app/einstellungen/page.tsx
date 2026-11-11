@@ -1,6 +1,9 @@
 import path from "node:path";
 import { connection } from "next/server";
 import {
+  checkAdLibraryAction,
+  removeMetaTokenAction,
+  saveResearchSettingsAction,
   checkHiggsfieldAction,
   removeVoiceKeyAction,
   saveHiggsfieldSettingsAction,
@@ -9,6 +12,8 @@ import {
   setupHiggsfieldAction,
 } from "@/app/actions";
 import { HIGGSFIELD_ADD_ARGS } from "@/lib/studio/higgsfield";
+import { getMetaUserToken } from "@/lib/research/meta";
+import { metaConfig } from "@/lib/env";
 import { SubmitButton } from "@/components/client";
 import { Badge, Flash, PageHeader, flashFrom } from "@/components/ui";
 import { getDb } from "@/lib/db/client";
@@ -52,6 +57,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       usageError = (err as Error).message;
     }
   }
+  const metaToken = await getMetaUserToken(db).catch(() => null);
+  const metaApp = Boolean(metaConfig().appId && metaConfig().appSecret);
   const models = VOICE_MODELS.some((m) => m.id === s.voice.model) ? VOICE_MODELS : [...VOICE_MODELS, { id: s.voice.model, label: s.voice.model }];
 
   return (
@@ -366,6 +373,68 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <SubmitButton className="btn btn-primary">Speichern</SubmitButton>
             </div>
           </form>
+        </section>
+
+        <section id="recherche" className="card space-y-4 p-4 lg:col-span-2">
+          <h2 className="h2">Recherche (Werbebibliothek & Konkurrenz)</h2>
+          <p className="text-sm text-muted">
+            Für die Meta-Werbebibliothek braucht Claude einen Zugang: einmalig die Identität bei Meta bestätigen (facebook.com/ID), in der Meta-App das Produkt
+            „Ad Library API“ hinzufügen und Instagram verbinden – die Anmeldung wird dann mitgenutzt. Alternativ ein Nutzer-Token aus dem Graph-API-Explorer
+            hier einfügen.
+          </p>
+          <ul className="space-y-1 text-sm">
+            <li>
+              <span className={metaToken ? "text-ok" : "text-warn"}>{metaToken ? "✓" : "!"}</span>{" "}
+              {metaToken
+                ? `Nutzer-Zugang aus ${metaToken.source === "instagram" ? "der Instagram-Anmeldung" : "einem hinterlegten Token"}${metaToken.expiresAt ? `, gültig bis ${formatDate(metaToken.expiresAt, s.timezone)}` : ""}`
+                : "Noch kein Nutzer-Zugang – Instagram verbinden oder Token einfügen"}
+            </li>
+            <li>
+              <span className={metaApp ? "text-ok" : "text-warn"}>{metaApp ? "✓" : "!"}</span>{" "}
+              {metaApp ? "Meta-App eingetragen (.env)" : "Meta-App fehlt in der .env (META_APP_ID, META_APP_SECRET)"}
+            </li>
+          </ul>
+          <form action={saveResearchSettingsAction} className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="back" value="/einstellungen#recherche" />
+            <div>
+              <label className="label" htmlFor="researchEvery">
+                Recherche automatisch starten
+              </label>
+              <select id="researchEvery" name="researchEvery" defaultValue={s.research.every} className="input">
+                <option value="off">Nie – nur von Hand</option>
+                <option value="week">Jede Woche</option>
+                <option value="month">Alle 4 Wochen</option>
+              </select>
+            </div>
+            <div>
+              <label className="label" htmlFor="metaToken">
+                Nutzer-Token für die Werbebibliothek (optional)
+              </label>
+              <input id="metaToken" name="metaToken" type="password" autoComplete="off" placeholder={metaToken?.source === "manual" ? "hinterlegt – zum Ändern neu eingeben" : "EAA…"} className="input font-mono" />
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+              <SubmitButton className="btn btn-primary" pendingText="Prüfe …">
+                Speichern
+              </SubmitButton>
+              <span className="text-xs text-muted">Ein eingefügtes Token wird in ein 60-Tage-Token getauscht, geprüft und verschlüsselt gespeichert.</span>
+            </div>
+          </form>
+          <div className="flex flex-wrap gap-2">
+            <form action={checkAdLibraryAction}>
+              <input type="hidden" name="back" value="/einstellungen#recherche" />
+              <SubmitButton className="btn py-1 text-xs" pendingText="Prüfe …">
+                Zugang zur Werbebibliothek prüfen
+              </SubmitButton>
+            </form>
+            {metaToken && (
+              <form action={removeMetaTokenAction}>
+                <input type="hidden" name="back" value="/einstellungen#recherche" />
+                <SubmitButton className="btn btn-danger py-1 text-xs" confirm="Meta-Token entfernen? Die Werbebibliothek ist dann ohne neue Instagram-Anmeldung nicht mehr erreichbar.">
+                  Token entfernen
+                </SubmitButton>
+              </form>
+            )}
+          </div>
         </section>
 
         <section id="worker" className="card space-y-3 p-4 lg:col-span-2">

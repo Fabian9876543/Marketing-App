@@ -159,7 +159,7 @@ export function runPrompt(a: Automation, project: Project, now: Date, tz: string
     "",
     a.recipe,
     ...(learned.length
-      ? ["", "# Erkenntnisse aus den Zahlen", "", "Vom Menschen bestätigt – gehen dem Rezept vor, wenn sie sich widersprechen:", ...learned.map((t) => `- ${t}`)]
+      ? ["", "# Erkenntnisse aus den Zahlen und Muster aus der Recherche", "", "Vom Menschen bestätigt – gehen dem Rezept vor, wenn sie sich widersprechen:", ...learned.map((t) => `- ${t}`)]
       : []),
   ].join("\n");
 }

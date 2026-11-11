@@ -15,6 +15,7 @@ Lokales Marketing-Tool für **beliebig viele Projekte** – Apps, Marken, Kunden
 - **Zahlen und Lernen:** Der Worker holt die Zahlen aller Konten, auch für Posts, die nicht über das Tool liefen. Jeder Beitrag wird mit dem Median seines Kanals verglichen (stark/normal/schwach). Einmal pro Woche schlägt Claude Erkenntnisse vor. Was du bestätigst, landet in `PROJEKT.md` und gilt für jeden neuen Short.
 - **Stimmen (ElevenLabs):** Claude lässt Sprechertexte einsprechen, z. B. für einen Erzähler oder gestellte Telefonate mit zwei Stimmen. Die Stimme wählst du pro Projekt, der API-Schlüssel liegt verschlüsselt in der App.
 - **KI-Bilder und -Videos (Higgsfield):** Claude erzeugt im Studio KI-Clips und -Bilder über dein Higgsfield-Abo, mit Budget pro Auftrag. In Automationen nur, wenn du es erlaubst.
+- **Recherche:** Claude wertet die Meta-Werbebibliothek, Konkurrenz-Konten auf Instagram, YouTube-Shorts und eigene Beispielvideos aus und schlägt Muster vor. Was du bestätigst, gilt für neue Shorts – als Orientierung, nie als Kopie.
 - **Backlog:** ein Ordner pro Short (`video.mp4` + optional `meta.json`) oder Upload im Browser. Dauer und Format werden geprüft.
 - **Planen:** Posting-Zeiten (Slots), „nächster freier Slot“ oder feste Zeit. Kalender als Woche oder Monat.
 - **Freigabe:** Warteschlange mit „Freigeben“, „Alle freigeben“, „Verschieben“ und „Absagen“. Nichts geht ohne Freigabe online.

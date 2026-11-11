@@ -68,7 +68,7 @@ async function call(apiKey: string, path: string, context: string, init: Request
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`${elevenlabsConfig().apiBase}${path}`, {
       ...init,
-      headers: { "xi-api-key": apiKey, ...(init.body ? { "Content-Type": "application/json" } : {}), ...(init.headers ?? {}) },
+      headers: { "xi-api-key": apiKey, ...(typeof init.body === "string" ? { "Content-Type": "application/json" } : {}), ...(init.headers ?? {}) },
       signal: AbortSignal.timeout(120_000),
     });
     // Zu viele gleichzeitige Anfragen: kurz warten und erneut versuchen
@@ -222,4 +222,34 @@ export async function synthesize(apiKey: string, input: { voiceId: string; text:
     const res = await call(apiKey, `/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, "Text zu Sprache", { method: "POST", body });
     return { audio: Buffer.from(await res.arrayBuffer()), words: [], durationSec: null };
   }
+}
+
+/* ---------- Spracherkennung (Speech to Text) ---------- */
+
+export type Transcript = { text: string; language: string | null; words: Word[] };
+
+/** Modelle in der Reihenfolge, in der sie versucht werden (das neuere zuerst). */
+export const STT_MODELS = ["scribe_v2", "scribe_v1"];
+
+/** Schreibt mit, was in einer Audio- oder Videodatei gesprochen wird. */
+export async function transcribe(apiKey: string, audio: Buffer, filename: string, mime: string): Promise<Transcript> {
+  let lastError: unknown;
+  for (const model of STT_MODELS) {
+    const form = new FormData();
+    form.append("model_id", model);
+    form.append("file", new Blob([new Uint8Array(audio)], { type: mime }), filename);
+    try {
+      const res = await call(apiKey, "/v1/speech-to-text", "Spracherkennung", { method: "POST", body: form });
+      const j = (await res.json()) as { text?: string; language_code?: string; words?: { text?: string; start?: number; end?: number; type?: string }[] };
+      const words = (j.words ?? [])
+        .filter((w) => (w.type ?? "word") === "word" && w.text?.trim())
+        .map((w) => ({ word: w.text!.trim(), start: w.start ?? 0, end: w.end ?? w.start ?? 0 }));
+      return { text: (j.text ?? "").trim(), language: j.language_code ?? null, words };
+    } catch (err) {
+      lastError = err;
+      // Unbekanntes Modell → nächstes versuchen; alles andere sofort melden
+      if (!(err instanceof VoiceError) || !/model/i.test(err.message)) throw err;
+    }
+  }
+  throw lastError;
 }

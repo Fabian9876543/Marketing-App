@@ -172,6 +172,15 @@ Umgesetzt am 07.11.2026:
 - Mit Higgsfield laufen Studio-Aufträge ohne `--strict-mcp-config`, und nur die Higgsfield-Werkzeuge werden zusätzlich freigegeben. Die Wochenanalyse nutzt Higgsfield nie.
 - Neue Studio-Werkzeuge `datei_laden` (Ergebnis nach `studio/public/ki/`) und `datei_hochladen` (eigene Screenshots als Vorlage): nur Medien, nur https, keine lokalen Adressen.
 
+### Ergänzung: Recherche ✅ umgesetzt (11.11.2026)
+
+- Meta-Werbebibliothek (`/ads_archive`, Deutschland, in der EU alle Anzeigen): Texte, Laufzeit, Plattformen, EU-Reichweite, Zielgruppe. Lange laufende Anzeigen zuerst. Zugang: Nutzer-Token aus der Instagram-Anmeldung, ein hinterlegtes Token oder der App-Zugang.
+- Instagram Business Discovery: die besten Beiträge anderer Business-/Creator-Konten im Verhältnis zum Konto.
+- YouTube-Suche nach Shorts (Deutschland, nach Views).
+- Eigene Beispiele: Einzelbilder per ffmpeg (Hook + Übersicht), Transkript per ElevenLabs-Spracherkennung.
+- Muster werden vorgeschlagen und erst nach Bestätigung genutzt (`learnings.source = research`), eigener Abschnitt in `PROJEKT.md`, auch im Automations-Auftrag.
+- Recherche als Studio-Chat mit Bericht unter `recherche/berichte/`, von Hand oder wöchentlich/alle 4 Wochen. TikTok und LinkedIn nur über eigene Beispiele (keine offene Schnittstelle).
+
 ### Später (optional)
 
 LinkedIn-Karussells (PDF), Antwortvorschläge für Kommentare, Mac automatisch aufwecken, Browser-Hilfe für öffentliche TikTok-Posts, weitere Projekte.

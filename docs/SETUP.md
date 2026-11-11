@@ -248,6 +248,29 @@ Gut zu wissen:
 - Higgsfield kann Prompts und hochgeladene Dateien zum Training nutzen. Prüfe dort die Datenschutz-Einstellungen, bevor Claude Screenshots hochlädt.
 - Die Anmeldung läuft irgendwann ab. Dann meldet Higgsfield im Studio einen Anmeldefehler, und du wiederholst Schritt 2.
 
+## Recherche: von erfolgreichen Anzeigen und Beiträgen anderer lernen
+
+Unter **Recherche** sieht sich Claude an, was bei deiner Zielgruppe funktioniert: Anzeigen in der Meta-Werbebibliothek, die besten Beiträge von Konkurrenz-Konten auf Instagram, erfolgreiche YouTube-Shorts und deine eigenen Beispiele. Daraus leitet es **Muster** ab, zum Beispiel „Problem als Frage im ersten Satz, dann sofort die Demo“. Bestätigte Muster stehen in `PROJEKT.md` und gelten für jeden neuen Short. Texte, Bilder oder Musik anderer übernimmt Claude nie, nur Prinzipien.
+
+**Quellen** (Recherche → Quellen):
+- **Stichwörter** für Werbebibliothek und YouTube, z. B. „KI Telefonassistent“, „Praxis Telefon“.
+- **Instagram-Konten** von Konkurrenz oder Vorbildern. Das geht nur bei Business- und Creator-Konten.
+- **Facebook-Seiten** für die Werbebibliothek: Öffne in der Werbebibliothek (facebook.com/ads/library) einen Werbetreibenden und kopiere die Adresse. Die App liest die Seiten-ID heraus.
+- **Eigene Beispiele:** Videos oder Screenshots unter **Referenzen → Inspiration** ablegen. Claude zerlegt Videos in Einzelbilder (Hook, Aufbau, Tempo) und schreibt mit ElevenLabs das Gesprochene mit.
+
+**Voraussetzungen:**
+- **Werbebibliothek** (einmalig):
+  1. Identität bei Meta bestätigen: https://www.facebook.com/ID (Ausweis, dauert meist ein bis zwei Tage).
+  2. In deiner Meta-App (developers.facebook.com, dieselbe wie für Instagram) das Produkt **„Ad Library API“** hinzufügen bzw. dessen Bedingungen akzeptieren.
+  3. Instagram in der App verbinden – die Anmeldung wird für die Werbebibliothek mitgenutzt. Alternativ unter **Einstellungen → Recherche** ein Nutzer-Token aus dem Graph-API-Explorer einfügen. Die App tauscht es in ein 60-Tage-Token und prüft es.
+  4. **Einstellungen → Recherche → „Zugang zur Werbebibliothek prüfen“.**
+  Wegen des EU-Gesetzes über digitale Dienste (DSA) enthält die Werbebibliothek alle Anzeigen, die in der EU liefen. Bilder und Videos liefert die Schnittstelle nicht, nur Texte, Laufzeit, Plattformen, Reichweite und einen Link zur Anzeige.
+- **Instagram-Konkurrenz:** ein verbundenes Instagram-Konto (Business Discovery).
+- **YouTube-Suche:** ein verbundenes YouTube-Konto. Jede Suche kostet etwa 100 Einheiten deines YouTube-Tageskontingents (10.000).
+- **TikTok und LinkedIn** bieten keine Schnittstelle für fremde Beiträge: gute Beispiele als Link, Screenshot oder Video unter **Referenzen → Inspiration** ablegen.
+
+**Ablauf:** „Recherche jetzt starten“ öffnet einen Studio-Chat. Am Ende liegen ein **Bericht** (Recherche → Berichte und `recherche/berichte/` im Projektordner) und **Muster-Vorschläge** zum Bestätigen vor. Automatisch jede Woche oder alle 4 Wochen stellst du unter **Einstellungen → Recherche** ein.
+
 ## Automationen: jeden Tag neue Shorts
 
 Hat Claude im Studio einen Short gebaut, der dir gefällt, klickst du im Chat auf **„Als Automation speichern“**. Daraus wird ein **Rezept**: dein Auftrag, deine Rückmeldungen aus dem Chat und der gelungene Short als Vorbild. Du kannst das Rezept vor dem Speichern anpassen.

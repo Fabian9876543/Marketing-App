@@ -7,6 +7,7 @@ import { logEvent } from "@/lib/events";
 import { getProject } from "@/lib/projects";
 import { oauthProviders } from "@/lib/publishing/registry";
 import { getSettings } from "@/lib/settings";
+import { getMetaUserToken, setMetaUserToken } from "@/lib/research/meta";
 
 /** Die Plattform leitet nach der Anmeldung hierher zurück. */
 export async function GET(req: Request, { params }: { params: Promise<{ platform: string }> }) {
@@ -50,9 +51,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ platform
     const found = await provider.connect({ code, codeVerifier: row.codeVerifier, settings: getSettings(db) });
     if (!found.length) throw new Error("Kein passendes Konto gefunden");
     const names: string[] = [];
-    for (const acc of found) {
+    for (const { metaUserToken, ...acc } of found) {
       const saved = await upsertAccount(db, { projectId: project.id, platform: provider.platform, ...acc });
       names.push(saved.name);
+      // Für die Recherche in der Werbebibliothek (nur, wenn kein eigenes Token hinterlegt ist)
+      if (metaUserToken) {
+        const current = await getMetaUserToken(db).catch(() => null);
+        if (!current || current.source === "instagram") await setMetaUserToken(db, metaUserToken.token, { expiresAt: metaUserToken.expiresAt, source: "instagram" });
+      }
     }
     const msg = `${label}: ${names.map((n) => `„${n}“`).join(", ")} mit Projekt „${project.name}“ verbunden`;
     logEvent(db, "info", "konten", msg);

@@ -262,9 +262,19 @@ export function writeBriefFile(db: DB, id: number): string {
     .where(and(eq(learnings.projectId, id), eq(learnings.status, "accepted")))
     .orderBy(asc(learnings.id))
     .all();
-  if (known.length) {
+  const fromNumbers = known.filter((l) => l.source !== "research");
+  const fromResearch = known.filter((l) => l.source === "research");
+  if (fromNumbers.length) {
     lines.push("## Erkenntnisse aus den Zahlen\n", "Bestätigt aus der Auswertung bisheriger Posts – gelten für jeden neuen Short:\n");
-    for (const l of known) lines.push(`- ${l.text}`);
+    for (const l of fromNumbers) lines.push(`- ${l.text}`);
+    lines.push("");
+  }
+  if (fromResearch.length) {
+    lines.push(
+      "## Muster aus Beispielen und Recherche\n",
+      "Bestätigt aus erfolgreichen Anzeigen und Beiträgen anderer – als Orientierung für Aufbau und Wirkung, nie Inhalte übernehmen:\n",
+    );
+    for (const l of fromResearch) lines.push(`- ${l.text}`);
     lines.push("");
   }
 

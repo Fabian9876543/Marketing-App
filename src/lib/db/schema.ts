@@ -36,9 +36,22 @@ export const projects = sqliteTable("projects", {
   analysisAt: integer("analysis_at", { mode: "timestamp_ms" }),
   /** Stimmen (ElevenLabs) für Sprechertexte: Hauptstimme und zweite Stimme fürs Gegenüber im Dialog */
   voices: text("voices", { mode: "json" }).$type<ProjectVoices>().notNull().default({}),
+  /** Quellen für die Recherche: Stichwörter, Instagram-Konten, Facebook-Seiten */
+  research: text("research", { mode: "json" }).$type<ResearchSources>().notNull().default({}),
+  /** Letzte Recherche durch Claude */
+  researchAt: integer("research_at", { mode: "timestamp_ms" }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+export type ResearchSources = {
+  /** Suchbegriffe für Werbebibliothek und YouTube */
+  keywords?: string[];
+  /** Instagram-Business-/Creator-Konten (ohne @) */
+  instagram?: string[];
+  /** Facebook-Seiten-IDs für die Werbebibliothek */
+  metaPages?: string[];
+};
 
 export type VoiceRef = { id: string; name: string };
 export type ProjectVoices = { main?: VoiceRef; second?: VoiceRef };
@@ -281,6 +294,8 @@ export const studioSessions = sqliteTable(
     automationId: integer("automation_id").references(() => automations.id, { onDelete: "set null" }),
     /** Wochenanalyse der Zahlen (statt Shorts bauen) */
     analysis: integer("analysis", { mode: "boolean" }).notNull().default(false),
+    /** Recherche (Werbebibliothek, Konkurrenz, Beispiele) */
+    research: integer("research", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -428,7 +443,8 @@ export const learnings = sqliteTable(
     /** Begründung aus den Zahlen (z. B. „3 der 4 stärksten Posts …“) */
     reason: text("reason").notNull().default(""),
     status: text("status", { enum: ["proposed", "accepted", "rejected"] }).notNull().default("proposed"),
-    source: text("source", { enum: ["analysis", "manual"] }).notNull().default("analysis"),
+    /** analysis = aus den eigenen Zahlen, research = Muster aus Beispielen und Recherche, manual = selbst eingetragen */
+    source: text("source", { enum: ["analysis", "manual", "research"] }).notNull().default("analysis"),
     decidedAt: integer("decided_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
   },

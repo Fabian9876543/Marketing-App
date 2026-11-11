@@ -31,7 +31,33 @@ out({ type: "system", subtype: "init", session_id: sid, model: "test-modell", to
 out({ type: "assistant", message: { content: [{ type: "text", text: `Verstanden: ${prompt.slice(0, 40)}` }] } });
 if (/langsam/.test(prompt)) await sleep(10_000);
 
-if (/^Wochenanalyse/.test(prompt)) {
+if (/^Recherche für/.test(prompt)) {
+  // Recherche: Studio-Werkzeuge über den echten MCP-Server aufrufen und einen Bericht schreiben
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+  const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
+  const cfg = JSON.parse(fs.readFileSync(args[args.indexOf("--mcp-config") + 1], "utf8")).mcpServers.studio;
+  const client = new Client({ name: "fake-claude", version: "1.0.0" });
+  await client.connect(new StdioClientTransport({ command: cfg.command, args: cfg.args, env: { ...process.env, ...cfg.env }, cwd: process.cwd() }));
+  let n = 0;
+  const call = async (name, input) => {
+    const id = `r${++n}`;
+    out({ type: "assistant", message: { content: [{ type: "tool_use", id, name: `mcp__studio__${name}`, input }] } });
+    const r = await client.callTool({ name, arguments: input });
+    out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content: r.content, is_error: Boolean(r.isError) }] } });
+    return r.content.map((c) => c.text).join("\n");
+  };
+  const sources = await call("recherche_quellen", {});
+  const keyword = sources.match(/^Stichwörter: ([^,\n]+)/m)?.[1] ?? "Telefon";
+  const ads = await call("werbebibliothek_suchen", { suchbegriff: keyword });
+  await call("muster_vorschlagen", { text: "Problem als Frage im ersten Satz, dann sofort die Demo", begruendung: "Die am längsten laufende Anzeige beginnt mit einer Frage." });
+  await client.close();
+  const file = prompt.match(/recherche\/berichte\/[\d-]+\.md/)?.[0] ?? "recherche/berichte/bericht.md";
+  fs.mkdirSync(path.dirname(path.join(process.cwd(), file)), { recursive: true });
+  fs.writeFileSync(path.join(process.cwd(), file), `# Recherche\n\n## Werbebibliothek (${keyword})\n\n${ads.split("\n").slice(0, 6).join("\n")}\n\n## Muster\n\n- Problem als Frage im ersten Satz, dann sofort die Demo\n`);
+  out({ type: "assistant", message: { content: [{ type: "tool_use", id: "w1", name: "Write", input: { file_path: file } }] } });
+  out({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "w1", content: "ok", is_error: false }] } });
+  out({ type: "assistant", message: { content: [{ type: "text", text: `Recherche fertig: Bericht in ${file}, 1 Muster vorgeschlagen.` }] } });
+} else if (/^Wochenanalyse/.test(prompt)) {
   // Wie die echte CLI: Werkzeuge des MCP-Servers „studio“ aus --mcp-config aufrufen
   const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
   const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");

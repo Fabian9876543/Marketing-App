@@ -65,14 +65,16 @@ export const instagramOAuth: OAuthProvider = {
 
     // Meta entzieht Datenzugriff nach ~90 Tagen ohne erneute Anmeldung – Erinnerung setzen.
     let reconnectBy: Date | null = null;
+    let userTokenExpiresAt: number | null = null;
     try {
-      const dbg = await graph<{ data?: { data_access_expires_at?: number } }>(
+      const dbg = await graph<{ data?: { data_access_expires_at?: number; expires_at?: number } }>(
         "GET",
         "debug_token",
         { input_token: long.access_token, access_token: `${c.appId}|${c.appSecret}` },
         "Token prüfen",
       );
       if (dbg.data?.data_access_expires_at) reconnectBy = new Date(dbg.data.data_access_expires_at * 1000);
+      if (dbg.data?.expires_at) userTokenExpiresAt = dbg.data.expires_at * 1000;
     } catch {
       // nicht kritisch
     }
@@ -87,6 +89,7 @@ export const instagramOAuth: OAuthProvider = {
           handle: ig.username ? `@${ig.username}` : null,
           tokens: { accessToken: p.access_token!, scope: `page:${p.id}` },
           reconnectBy,
+          metaUserToken: { token: long.access_token, expiresAt: userTokenExpiresAt },
         };
       });
     if (!found.length) {

@@ -19,19 +19,19 @@ export const acceptedLearnings = (db: DB, projectId: number) => listLearnings(db
 const clean = (t: string) => t.trim().replace(/\s+/g, " ");
 
 /** Vorschlag (meist von Claude). Gilt erst, wenn du ihn bestätigst. Doppelte Vorschläge werden ignoriert. */
-export function proposeLearning(db: DB, projectId: number, text: string, reason = ""): Learning | null {
+export function proposeLearning(db: DB, projectId: number, text: string, reason = "", source: "analysis" | "research" = "analysis"): Learning | null {
   const t = clean(text);
   if (t.length < 5) throw new LearningError("Die Erkenntnis ist zu kurz");
   const exists = listLearnings(db, projectId, ["proposed", "accepted"]).some((l) => l.text.toLowerCase() === t.toLowerCase());
   if (exists) return null;
-  return db.insert(learnings).values({ projectId, text: t, reason: clean(reason), status: "proposed", source: "analysis" }).returning().get();
+  return db.insert(learnings).values({ projectId, text: t, reason: clean(reason), status: "proposed", source }).returning().get();
 }
 
 /** Eigene Erkenntnis – gilt sofort. */
-export function addManualLearning(db: DB, projectId: number, text: string): Learning {
+export function addManualLearning(db: DB, projectId: number, text: string, source: "manual" | "research" = "manual"): Learning {
   const t = clean(text);
   if (t.length < 5) throw new LearningError("Die Erkenntnis ist zu kurz");
-  const l = db.insert(learnings).values({ projectId, text: t, status: "accepted", source: "manual", decidedAt: new Date() }).returning().get();
+  const l = db.insert(learnings).values({ projectId, text: t, status: "accepted", source, decidedAt: new Date() }).returning().get();
   writeBriefFile(db, projectId);
   return l;
 }
