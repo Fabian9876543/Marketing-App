@@ -468,7 +468,7 @@ describe("Erkenntnisse", () => {
     const p = testProject(db);
     const yt = await accountFor(db, p.id, "youtube");
     seedItems(db, yt.id, [{ id: "z", views: 10, ageH: 1 }]);
-    expect(statsTool(db, p, 7)).toContain("zu frisch");
+    expect(statsTool(db, p, 7, NOW)).toContain("zu frisch"); // feste Uhr, sonst hängt der Test vom heutigen Datum ab
   });
 });
 

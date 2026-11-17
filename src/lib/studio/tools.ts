@@ -94,8 +94,8 @@ export async function proposeTool(
 
 /* ---------- Zahlen und Erkenntnisse (Phase 5) ---------- */
 
-export function statsTool(db: DB, project: Project, days = 30): string {
-  return statsText(db, project.id, days, getSettings(db).timezone);
+export function statsTool(db: DB, project: Project, days = 30, now = new Date()): string {
+  return statsText(db, project.id, days, getSettings(db).timezone, now);
 }
 
 export function learningsTool(db: DB, project: Project): string {
