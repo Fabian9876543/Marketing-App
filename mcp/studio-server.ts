@@ -155,10 +155,11 @@ server.registerTool(
   {
     title: "Bild/Video/Audio herunterladen",
     description:
-      "Lädt ein Bild, Video oder Audio von einer https-Adresse (z. B. ein Higgsfield-Ergebnis) nach studio/public/ki/ und liefert den Pfad für die Szenen-JSON.",
+      "Lädt ein Bild, Video oder Audio von einer https-Adresse (z. B. ein Ergebnis von Higgsfield oder ElevenLabs) nach studio/public/ki/ bzw. studio/public/stimme/ und liefert den Pfad für die Szenen-JSON (bei Audio mit Dauer).",
     inputSchema: {
       url: z.string().url().describe("https-Adresse der Datei"),
       datei: z.string().min(1).max(100).describe("Dateiname ohne Endung, z. B. 2026-11-10-praxis-intro"),
+      ordner: z.enum(["ki", "stimme"]).optional().describe("„stimme“ für Sprechertexte (Audio), sonst „ki“ (Standard)"),
     },
   },
   async (args) => safe(() => downloadTool(project(), args))(),

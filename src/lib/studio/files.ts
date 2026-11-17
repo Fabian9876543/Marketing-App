@@ -94,7 +94,8 @@ const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1).replace(".", ",")} MB`
 const sec = (n: number) => n.toFixed(1).replace(".", ",");
 
 /** Holt ein Bild, Video oder Audio aus dem Netz nach studio/public/ki/. */
-export async function downloadTool(project: Project, input: { url: string; datei: string }, opts: FileToolOptions = {}): Promise<string> {
+export async function downloadTool(project: Project, input: { url: string; datei: string; ordner?: "ki" | "stimme" }, opts: FileToolOptions = {}): Promise<string> {
+  const folder = input.ordner === "stimme" ? "stimme" : "ki";
   let url = checkRemoteUrl(input.url, opts);
   let res: Response | null = null;
   for (let hop = 0; hop < 5; hop++) {
@@ -115,9 +116,10 @@ export async function downloadTool(project: Project, input: { url: string; datei
   const length = Number(res.headers.get("content-length") ?? 0);
   if (length > MAX_DOWNLOAD_BYTES) throw new FileToolError(`Datei zu groß (${mb(length)}, höchstens ${mb(MAX_DOWNLOAD_BYTES)})`);
 
-  const dir = path.join(project.folder, "studio", "public", "ki");
+  if (folder === "stimme" && !EXT_MIME[ext]?.startsWith("audio/")) throw new FileToolError("In den Ordner „stimme“ gehören nur Audiodateien");
+  const dir = path.join(project.folder, "studio", "public", folder);
   fs.mkdirSync(dir, { recursive: true });
-  const name = `${safeName(input.datei, "ki")}.${ext}`;
+  const name = `${safeName(input.datei, folder)}.${ext}`;
   const file = path.join(dir, name);
   const tmp = `${file}.teil`;
   let bytes = 0;
@@ -140,6 +142,14 @@ export async function downloadTool(project: Project, input: { url: string; datei
   const details = [mb(bytes)];
   if (info.width && info.height) details.push(`${info.width}×${info.height}`);
   if (info.durationSec && !ext.match(/png|jpg|webp/)) details.push(`${sec(info.durationSec)} s`);
+  if (folder === "stimme") {
+    const d = info.durationSec;
+    return [
+      `Gespeichert: studio/public/stimme/${name} (${details.join(", ")}) – in der Szenen-JSON: "voice": "stimme/${name}"`,
+      d ? `Dauer: ${sec(d)} s → Szene bzw. Abstand zur nächsten Dialogzeile mindestens ${sec(d + 0.4)} s.` : "Dauer unbekannt – mit ffprobe prüfen.",
+      "KI-Stimme: in meta.json \"aiGenerated\": true setzen.",
+    ].join("\n");
+  }
   const lines = [`Gespeichert: studio/public/ki/${name} (${details.join(", ")}) – in der Szenen-JSON: "src": "ki/${name}"`];
   if (info.width && info.height && info.width > info.height) lines.push("Achtung: Querformat – für Shorts besser 9:16 erzeugen.");
   lines.push("KI-Bild oder -Video: in meta.json \"aiGenerated\": true setzen.");

@@ -181,6 +181,12 @@ Umgesetzt am 07.11.2026:
 - Muster werden vorgeschlagen und erst nach Bestätigung genutzt (`learnings.source = research`), eigener Abschnitt in `PROJEKT.md`, auch im Automations-Auftrag.
 - Recherche als Studio-Chat mit Bericht unter `recherche/berichte/`, von Hand oder wöchentlich/alle 4 Wochen. TikTok und LinkedIn nur über eigene Beispiele (keine offene Schnittstelle).
 
+### Ergänzung: ElevenLabs ohne API-Schlüssel ✅ umgesetzt (17.11.2026)
+
+- Wie bei Higgsfield: Das Studio nutzt die ElevenLabs-Verbindung von Claude (claude.ai-Connector oder eigener Eintrag `https://api.elevenlabs.io/v1/mcp`), erkannt per `claude mcp list`.
+- Ablauf für Claude: Flow anlegen → Stimme suchen → Sprache erzeugen (eine Variante) → warten → Audio mit `datei_laden` nach `studio/public/stimme/`.
+- Projektstimmen ohne Schlüssel per Name. Der API-Schlüssel bleibt optional (Stimmenliste, Verbrauch, Zeitstempel je Wort, Transkripte) und hat Vorrang, wenn er hinterlegt ist.
+
 ### Später (optional)
 
 LinkedIn-Karussells (PDF), Antwortvorschläge für Kommentare, Mac automatisch aufwecken, Browser-Hilfe für öffentliche TikTok-Posts, weitere Projekte.

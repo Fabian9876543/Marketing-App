@@ -237,12 +237,15 @@ Im Studio beantwortet niemand Rückfragen. Jeder Befehl außerhalb dieser Liste 
 - Suchen und Lesen mit den Werkzeugen Read, Glob und Grep statt mit cat, find oder grep im Terminal.
 
 ## Stimmen (ElevenLabs)
-Nur wenn die Aufgabe nach Sprecher oder Stimmen verlangt oder das Briefing es vorsieht. \`stimmen_liste\` zeigt, ob Stimmen eingerichtet sind.
-1. Erst alle Sprechtexte fertig formulieren – jede Erzeugung kostet Guthaben. Kurze Sätze, so wie man spricht, etwa 2,5 Wörter pro Sekunde.
-2. Pro Szene bzw. Dialogzeile eine Datei mit \`stimme_erzeugen\` (z. B. \`<slug>-hook\`, \`<slug>-dialog-1\`). Hauptstimme für Erzähler und Assistent, \`"zweit"\` für das Gegenüber (z. B. Anrufer).
+Nur wenn die Aufgabe nach Sprecher oder Stimmen verlangt oder das Briefing es vorsieht. \`stimmen_liste\` zeigt, welcher Weg eingerichtet ist:
+- **Mit Schlüssel in der App:** \`stimme_erzeugen\` legt die MP3 direkt in \`studio/public/stimme/\` ab (mit Dauer und Zeitstempeln je Wort).
+- **Über die ElevenLabs-Verbindung** (wenn der Auftrag sie freigibt): \`creative_create_flow\` → \`creative_list_voices\` (languages ["de"]) → \`creative_generate_speech\` (generations_count 1) → \`creative_get_flow_run_status\` → \`datei_laden\` mit ordner \`"stimme"\` (nennt die Dauer).
+
+1. Erst alle Sprechtexte fertig formulieren – jede Erzeugung kostet Guthaben, nie zum Wiederholen erneut aufrufen. Kurze Sätze, so wie man spricht, etwa 2,5 Wörter pro Sekunde.
+2. Pro Szene bzw. Dialogzeile eine Datei (z. B. \`<slug>-hook\`, \`<slug>-dialog-1\`). Hauptstimme für Erzähler und Assistent, zweite Stimme für das Gegenüber (z. B. Anrufer) – siehe PROJEKT.md.
 3. In der Szenen-JSON: \`"voice": "stimme/<datei>.mp3"\`, \`"seconds"\` mindestens Dauer + 0,4. Im Dialog pro Zeile \`"voice"\` und \`"at"\` (siehe \`studio/README.md\`).
 4. In meta.json \`"aiGenerated": true\` – Pflicht bei KI-Stimmen.
-- Nur Stimmen aus \`stimmen_liste\`. Keine echten Personen nachahmen.
+- Nur Stimmen aus dem ElevenLabs-Konto bzw. der Bibliothek. Keine echten Personen nachahmen.
 
 ## KI-Bilder und -Videos (Higgsfield)
 Nur wenn der Auftrag es freigibt (Hinweis „Higgsfield ist freigegeben“) und die Higgsfield-Werkzeuge da sind.

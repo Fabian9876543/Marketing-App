@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { getSettings, updateSettings } from "@/lib/settings";
 import { checkRemoteUrl, downloadTool, safeName, uploadTool } from "@/lib/studio/files";
-import { addHiggsfieldToClaude, checkHiggsfield, findHiggsfield, higgsfieldFor, mcpToolPrefix, parseMcpList } from "@/lib/studio/higgsfield";
+import { addHiggsfieldToClaude, checkHiggsfield, findHiggsfield, higgsfieldAppend, higgsfieldFor, mcpToolPrefix, parseMcpList } from "@/lib/studio/higgsfield";
 import { buildArgs } from "@/lib/studio/runner";
 import { agentInstructions } from "@/lib/studio/workspace";
 import { tempDir, testDb, testProject } from "./helpers";
@@ -80,7 +80,8 @@ describe("Higgsfield in Studio-Aufträgen", () => {
     expect(plain).toContain("--strict-mcp-config");
     expect(plain.join(" ")).not.toContain("higgsfield");
 
-    const hf = buildArgs({ ...base, higgsfield: { toolPrefix: "mcp__claude_ai_Higgsfield", maxCredits: 40, unlim: false } });
+    const use = { toolPrefix: "mcp__claude_ai_Higgsfield", maxCredits: 40, unlim: false };
+    const hf = buildArgs({ ...base, connectors: [{ toolPrefix: use.toolPrefix, append: higgsfieldAppend(use) }] });
     expect(hf).not.toContain("--strict-mcp-config");
     const allowed = hf.slice(hf.indexOf("--allowedTools") + 1, hf.indexOf("--disallowedTools"));
     expect(allowed).toContain("mcp__claude_ai_Higgsfield");

@@ -9,6 +9,8 @@ import { describePlan, planIntoNextSlot } from "../autoplan";
 import { statsText } from "../analytics/stats";
 import { probeVideo } from "../media";
 import { describeVoice, getElevenLabsKey, listVoices, synthesize, VoiceError, type Voice } from "../voice/elevenlabs";
+import { elevenlabsConnectorReady } from "./elevenlabs-connector";
+import { mcpToolPrefix } from "./mcp-connectors";
 import { listLearnings, proposeLearning } from "../learnings";
 import { contentUsage, takenTimes } from "../posts";
 import { getSettings } from "../settings";
@@ -125,11 +127,23 @@ export function proposeLearningTool(db: DB, project: Project, input: { text: str
 
 /* ---------- Stimmen (ElevenLabs) ---------- */
 
-const NO_KEY = "Keine Stimmen eingerichtet: In der App unter Einstellungen → Stimmen einen ElevenLabs-API-Schlüssel hinterlegen. Bis dahin Shorts ohne Sprecher bauen.";
+const NO_KEY = "Keine Stimmen eingerichtet: In der App unter Einstellungen → Stimmen die ElevenLabs-Verbindung von Claude einschalten oder einen API-Schlüssel hinterlegen. Bis dahin Shorts ohne Sprecher bauen.";
+
+/** Ohne Schlüssel, aber mit eingeschalteter Verbindung: Ablauf über die ElevenLabs-Werkzeuge von Claude Code. */
+function connectorHint(db: DB, project: Project): string | null {
+  const server = elevenlabsConnectorReady(db);
+  if (!server) return null;
+  const { main, second } = project.voices;
+  return [
+    `Kein API-Schlüssel in der App – Sprechertexte laufen über die ElevenLabs-Verbindung (${mcpToolPrefix(server)}__…), falls sie für diesen Auftrag freigegeben ist:`,
+    "creative_create_flow → creative_list_voices (languages [\"de\"]) → creative_generate_speech (generations_count 1) → creative_get_flow_run_status → datei_laden mit ordner \"stimme\".",
+    `Projektstimmen: ${main ? `Hauptstimme „${main.name}“` : "keine Hauptstimme gewählt"}${second ? `, zweite Stimme „${second.name}“` : ""} – per Name in creative_list_voices suchen.`,
+  ].join("\n");
+}
 
 export async function voicesTool(db: DB, project: Project): Promise<string> {
   const key = await getElevenLabsKey(db);
-  if (!key) return NO_KEY;
+  if (!key) return connectorHint(db, project) ?? NO_KEY;
   const voices = await listVoices(key);
   const { main, second } = project.voices;
   const lines = [
@@ -160,13 +174,20 @@ export function voiceFileName(name: string | undefined): string {
 
 async function resolveVoice(key: string, project: Project, wanted: string | undefined): Promise<{ id: string; name: string }> {
   const w = (wanted ?? "haupt").trim();
+  const byName = async (name: string) => {
+    const v = (await listVoices(key)).find((x) => x.name.toLowerCase() === name.toLowerCase());
+    if (!v) throw new VoiceError(`Stimme „${name}“ nicht im ElevenLabs-Konto gefunden. Nimm eine aus stimmen_liste.`);
+    return { id: v.id, name: v.name };
+  };
   if (w === "haupt" || w === "") {
-    if (!project.voices.main) throw new VoiceError("Keine Hauptstimme gewählt (Projekt → Einstellungen → Stimmen). Gib eine Stimme aus stimmen_liste an.");
-    return project.voices.main;
+    const main = project.voices.main;
+    if (!main) throw new VoiceError("Keine Hauptstimme gewählt (Projekt → Einstellungen → Stimmen). Gib eine Stimme aus stimmen_liste an.");
+    return main.id ? main : byName(main.name);
   }
   if (w === "zweit") {
-    if (!project.voices.second) throw new VoiceError("Keine zweite Stimme gewählt (Projekt → Einstellungen → Stimmen). Gib eine Stimme aus stimmen_liste an.");
-    return project.voices.second;
+    const second = project.voices.second;
+    if (!second) throw new VoiceError("Keine zweite Stimme gewählt (Projekt → Einstellungen → Stimmen). Gib eine Stimme aus stimmen_liste an.");
+    return second.id ? second : byName(second.name);
   }
   const voices: Voice[] = await listVoices(key);
   const v = voices.find((x) => x.id === w) ?? voices.find((x) => x.name.toLowerCase() === w.toLowerCase());
@@ -183,7 +204,7 @@ export async function speakTool(
   input: { text: string; datei: string; stimme?: string; tempo?: number },
 ): Promise<string> {
   const key = await getElevenLabsKey(db);
-  if (!key) throw new VoiceError(NO_KEY);
+  if (!key) throw new VoiceError(connectorHint(db, project) ?? NO_KEY);
   const voice = await resolveVoice(key, project, input.stimme);
   const model = getSettings(db).voice.model;
   const speech = await synthesize(key, { voiceId: voice.id, text: input.text, modelId: model, speed: input.tempo });

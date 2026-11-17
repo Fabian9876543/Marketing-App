@@ -162,8 +162,16 @@ export function updateBrief(db: DB, id: number, brief: ProjectBrief): Project {
 export function updateVoices(db: DB, id: number, voices: ProjectVoices): Project {
   requireProject(db, id);
   const clean: ProjectVoices = {};
-  if (voices.main?.id) clean.main = { id: voices.main.id, name: voices.main.name || voices.main.id };
-  if (voices.second?.id) clean.second = { id: voices.second.id, name: voices.second.name || voices.second.id };
+  const ref = (v?: { id: string; name: string }) => {
+    const id = v?.id?.trim() ?? "";
+    const name = v?.name?.trim() ?? "";
+    return id || name ? { id, name: name || id } : undefined;
+  };
+  // Ohne API-Schlüssel kennt die App nur den Namen; Claude sucht die Stimme dann selbst
+  const main = ref(voices.main);
+  const second = ref(voices.second);
+  if (main) clean.main = main;
+  if (second) clean.second = second;
   const updated = db.update(projects).set({ voices: clean }).where(eq(projects.id, id)).returning().get();
   writeBriefFile(db, id);
   return updated;

@@ -21,6 +21,7 @@ import {
 } from "@/app/actions";
 import { SubmitButton } from "@/components/client";
 import { describeVoice, getElevenLabsKey, listVoices, type Voice } from "@/lib/voice/elevenlabs";
+import { getSettings } from "@/lib/settings";
 import { Badge, Flash, PageHeader, Tabs } from "@/components/ui";
 import { getScope } from "@/lib/active-project";
 import { getDb } from "@/lib/db/client";
@@ -485,6 +486,7 @@ function SettingsTab({ project, back, hasData }: { project: Project; back: strin
 async function VoicesCard({ project, back }: { project: Project; back: string }) {
   const db = getDb();
   const key = await getElevenLabsKey(db).catch(() => null);
+  const connector = getSettings(db).elevenlabsMcp.enabled;
   let voices: Voice[] = [];
   let error = "";
   if (key) {
@@ -506,14 +508,40 @@ async function VoicesCard({ project, back }: { project: Project; back: string })
   return (
     <section id="stimmen" className="card space-y-4 p-5">
       <h3 className="h2">Stimmen</h3>
-      {!key ? (
+      {!key && !connector ? (
         <p className="text-sm text-muted">
           Damit Claude Sprechertexte erzeugen kann, zuerst unter{" "}
           <Link href="/einstellungen#stimmen" className="underline">
             Einstellungen → Stimmen
           </Link>{" "}
-          den ElevenLabs-Schlüssel hinterlegen.
+          die ElevenLabs-Verbindung von Claude einschalten oder einen API-Schlüssel hinterlegen.
         </p>
+      ) : !key ? (
+        <form action={saveProjectVoicesAction} className="space-y-4">
+          <input type="hidden" name="projectId" value={project.id} />
+          <input type="hidden" name="back" value={`${back}#stimmen`} />
+          <p className="text-sm text-muted">
+            Ohne API-Schlüssel sucht Claude die Stimmen selbst über die ElevenLabs-Verbindung – trag hier den Namen ein, wie er in deinem ElevenLabs-Konto
+            steht (z. B. aus „My Voices“). Leer lassen: Claude wählt eine passende deutsche Stimme.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="mainVoiceName">
+                Hauptstimme – Erzähler, Assistent
+              </label>
+              <input id="mainVoiceName" name="mainVoiceName" defaultValue={main?.name ?? ""} maxLength={80} placeholder="z. B. Lena" className="input" />
+            </div>
+            <div>
+              <label className="label" htmlFor="secondVoiceName">
+                Zweite Stimme – Gegenüber (z. B. Anrufer)
+              </label>
+              <input id="secondVoiceName" name="secondVoiceName" defaultValue={second?.name ?? ""} maxLength={80} placeholder="z. B. Tom" className="input" />
+            </div>
+          </div>
+          <div className="text-right">
+            <SubmitButton className="btn btn-primary">Speichern</SubmitButton>
+          </div>
+        </form>
       ) : error ? (
         <p className="text-sm text-bad">{error}</p>
       ) : (

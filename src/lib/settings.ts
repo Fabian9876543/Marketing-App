@@ -4,6 +4,16 @@ import type { DB } from "./db/client";
 import { settings } from "./db/schema";
 import { defaultProjectsDir } from "./env";
 
+/** Ergebnis von „claude mcp list“ für einen Dienst, den Claude Code selbst verbindet (Higgsfield, ElevenLabs) */
+const detectedSchema = z
+  .object({
+    server: z.string().default(""),
+    status: z.enum(["ok", "auth", "error", "missing"]).default("missing"),
+    message: z.string().default(""),
+    checkedAt: z.number().nullable().default(null),
+  })
+  .default({ server: "", status: "missing", message: "", checkedAt: null });
+
 export const appSettingsSchema = z.object({
   timezone: z.string().default("Europe/Berlin"),
   /** Wie lange nach der geplanten Zeit ein Post noch nachgeholt wird (z. B. nach dem Ruhezustand). */
@@ -76,16 +86,18 @@ export const appSettingsSchema = z.object({
       /** Auch in automatischen Läufen (sonst nur, wenn du selbst einen Auftrag gibst) */
       inAutomations: z.boolean().default(false),
       /** Ergebnis von „claude mcp list“ */
-      detected: z
-        .object({
-          server: z.string().default(""),
-          status: z.enum(["ok", "auth", "error", "missing"]).default("missing"),
-          message: z.string().default(""),
-          checkedAt: z.number().nullable().default(null),
-        })
-        .default({ server: "", status: "missing", message: "", checkedAt: null }),
+      detected: detectedSchema,
     })
     .default({ enabled: false, maxCredits: 60, unlim: true, inAutomations: false, detected: { server: "", status: "missing", message: "", checkedAt: null } }),
+  /** ElevenLabs über die Verbindung, die Claude Code selbst hat (ohne API-Schlüssel in der App) */
+  elevenlabsMcp: z
+    .object({
+      enabled: z.boolean().default(false),
+      /** Auch in automatischen Läufen */
+      inAutomations: z.boolean().default(true),
+      detected: detectedSchema,
+    })
+    .default({ enabled: false, inAutomations: true, detected: { server: "", status: "missing", message: "", checkedAt: null } }),
   /** Wird an die Caption gehängt, wenn ein Video KI-Inhalte enthält und die Plattform keine eigene Kennzeichnung per API hat. */
   aiDisclosure: z.string().max(200).default("Mit KI erstellt."),
 });

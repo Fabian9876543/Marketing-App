@@ -64,7 +64,7 @@ export default async function StudioPage({ searchParams }: { searchParams: SP })
         }
       />
       <Flash {...await flashFrom(searchParams)} />
-      <Readiness project={project} status={status} info={info} workerAlive={alive} higgsfield={getSettings(db).higgsfield} />
+      <Readiness project={project} status={status} info={info} workerAlive={alive} higgsfield={getSettings(db).higgsfield} elevenlabs={getSettings(db).elevenlabsMcp} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-2">
@@ -123,12 +123,14 @@ function Readiness({
   info,
   workerAlive,
   higgsfield: hf,
+  elevenlabs: el,
 }: {
   project: Project;
   status: StudioStatus;
   info: ClaudeInfo;
   workerAlive: boolean;
   higgsfield: AppSettings["higgsfield"];
+  elevenlabs: AppSettings["elevenlabsMcp"];
 }) {
   const items: { ok: boolean; text: ReactNode }[] = [
     {
@@ -157,6 +159,21 @@ function Readiness({
               ) : (
                 <Link href="/einstellungen#higgsfield" className="underline">
                   Higgsfield eingeschaltet, aber nicht verbunden
+                </Link>
+              ),
+          },
+        ]
+      : []),
+    ...(el.enabled
+      ? [
+          {
+            ok: el.detected.status === "ok",
+            text:
+              el.detected.status === "ok" ? (
+                "Stimmen über die ElevenLabs-Verbindung"
+              ) : (
+                <Link href="/einstellungen#stimmen" className="underline">
+                  ElevenLabs eingeschaltet, aber nicht verbunden
                 </Link>
               ),
           },

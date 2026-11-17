@@ -35,9 +35,10 @@ Der Nutzer spricht Deutsch. Oberfläche, Fehlermeldungen und Doku sind auf Deuts
   Projektstimmen in `projects.voices`, Werkzeuge `voicesTool`/`speakTool`. Ändert sich `vorlagen/studio/src/Short.tsx` oder `README.md`,
   `TEMPLATE_VERSION` in `workspace.ts` erhöhen; Projekte merken sich die Prüfsummen in `studio/.vorlage.json`
   (`upgradeTemplate` ersetzt unveränderte Dateien, angepasste bekommen eine `.neu`-Fassung).
-- Higgsfield: kein eigener API-Client – Claude Code nutzt Higgsfields MCP-Server (eigener Eintrag oder claude.ai-Connector). `src/lib/studio/higgsfield.ts`
-  erkennt ihn per `claude mcp list`; `higgsfieldFor` entscheidet pro Auftrag (Einstellung, Automationen, nie in der Analyse). Dann ohne `--strict-mcp-config`
-  und mit dessen Werkzeug-Präfix in `--allowedTools`. Dateien bewegt Claude nur über `datei_laden`/`datei_hochladen` (`src/lib/studio/files.ts`, Schutz gegen lokale Adressen).
+- Dienste über Claude Code (Higgsfield, ElevenLabs ohne Schlüssel): kein eigener API-Client – Claude Code nutzt deren MCP-Server (eigener Eintrag oder
+  claude.ai-Connector). `src/lib/studio/mcp-connectors.ts` erkennt sie mit einem `claude mcp list`; `higgsfieldFor` (`higgsfield.ts`) und `elevenlabsFor`
+  (`elevenlabs-connector.ts`, nur ohne API-Schlüssel) entscheiden pro Auftrag, `connectorsFor` im Runner sammelt sie. Dann ohne `--strict-mcp-config`
+  und mit den Werkzeug-Präfixen in `--allowedTools`. Dateien bewegt Claude nur über `datei_laden`/`datei_hochladen` (`src/lib/studio/files.ts`, Schutz gegen lokale Adressen).
 - Recherche: `src/lib/research/` – `meta.ts` (Werbebibliothek, Token-Reihenfolge: Nutzer-Token aus Instagram-Anmeldung/hinterlegt, dann App-Zugang;
   Links an Claude nie mit Token), `social.ts` (Instagram Business Discovery, YouTube-Suche), `run.ts` (Recherche-Chat mit `research = true`,
   `runDueResearch`, Berichte in `recherche/berichte/`). Werkzeuge in `src/lib/studio/research-tools.ts`. Muster sind `learnings` mit `source = research`.

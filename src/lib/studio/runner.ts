@@ -12,7 +12,9 @@ import { getProject } from "../projects";
 import { getSettings } from "../settings";
 import { claudeBin, claudeInfo, explainClaudeError, type ClaudeInfo } from "./claude";
 import { addMessage } from "./sessions";
-import { higgsfieldAppend, higgsfieldFor, type HiggsfieldUse } from "./higgsfield";
+import { elevenlabsFor } from "./elevenlabs-connector";
+import { higgsfieldAppend, higgsfieldFor } from "./higgsfield";
+import type { ConnectorUse } from "./mcp-connectors";
 import { ALLOWED_TOOLS, DENIED_TOOLS, setupStudio } from "./workspace";
 
 /* ---------- Aufruf zusammenbauen ---------- */
@@ -34,20 +36,31 @@ export function buildArgs(opts: {
   model?: string;
   append: string;
   flags: Set<string>;
-  /** Higgsfield freigeben: dann auch die MCP-Server, die Claude Code selbst kennt (dort ist Higgsfield angemeldet) */
-  higgsfield?: HiggsfieldUse;
+  /** Dienste, die Claude Code selbst verbindet (Higgsfield, ElevenLabs): deren Werkzeuge zusätzlich freigeben */
+  connectors?: ConnectorUse[];
 }): string[] {
+  const connectors = opts.connectors ?? [];
   const args = ["-p", "--output-format", "stream-json", "--verbose", "--permission-mode", "acceptEdits"];
   // Neuere Versionen: alles, was nachfragen würde, automatisch ablehnen.
   if (opts.flags.has("--permission-prompts")) args.push("--permission-prompts", "none");
-  args.push("--allowedTools", ...ALLOWED_TOOLS, ...(opts.higgsfield ? [opts.higgsfield.toolPrefix] : []), "--disallowedTools", ...DENIED_TOOLS);
+  args.push("--allowedTools", ...ALLOWED_TOOLS, ...connectors.map((c) => c.toolPrefix), "--disallowedTools", ...DENIED_TOOLS);
   args.push("--mcp-config", opts.mcpConfigPath);
-  // Ohne Higgsfield nur der Studio-Server; mit Higgsfield auch die eigenen MCP-Server von Claude Code (Anmeldung liegt dort)
-  if (opts.flags.has("--strict-mcp-config") && !opts.higgsfield) args.push("--strict-mcp-config");
-  args.push("--append-system-prompt", opts.higgsfield ? `${opts.append} ${higgsfieldAppend(opts.higgsfield)}` : opts.append);
+  // Ohne Dienste nur der Studio-Server; mit Diensten auch die eigenen MCP-Server von Claude Code (die Anmeldung liegt dort)
+  if (opts.flags.has("--strict-mcp-config") && !connectors.length) args.push("--strict-mcp-config");
+  args.push("--append-system-prompt", [opts.append, ...connectors.map((c) => c.append)].join(" "));
   if (opts.model) args.push("--model", opts.model);
   args.push(...(opts.resume ? ["--resume", opts.sessionUuid] : ["--session-id", opts.sessionUuid]));
   return args;
+}
+
+/** Welche Dienste dieser Auftrag zusätzlich nutzen darf (Higgsfield, ElevenLabs über die Verbindung von Claude Code). */
+export function connectorsFor(db: DB, project: Project, session: { automationId: number | null; analysis: boolean; research?: boolean }): ConnectorUse[] {
+  const out: ConnectorUse[] = [];
+  const hf = higgsfieldFor(db, session);
+  if (hf) out.push({ toolPrefix: hf.toolPrefix, append: higgsfieldAppend(hf) });
+  const el = elevenlabsFor(db, project, session);
+  if (el) out.push(el);
+  return out;
 }
 
 /** Secrets der App nicht an Claude (und dessen Shell) weitergeben. */
@@ -231,7 +244,7 @@ export async function executeRun(db: DB, runId: number, opts: RunOptions = {}): 
     model: getSettings(db).studio.model || undefined,
     append: systemAppend(project),
     flags: info.flags,
-    higgsfield: higgsfieldFor(db, session),
+    connectors: connectorsFor(db, project, session),
   });
 
   const child: ChildProcess = (opts.spawnFn ?? spawn)(claudeBin(), args, {

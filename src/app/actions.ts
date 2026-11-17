@@ -51,6 +51,8 @@ import { refreshDueInsights } from "@/lib/analytics/store";
 import { addManualLearning, decideLearning, removeLearning } from "@/lib/learnings";
 import { listVoices, setElevenLabsKey } from "@/lib/voice/elevenlabs";
 import { addHiggsfieldToClaude, checkHiggsfield } from "@/lib/studio/higgsfield";
+import { addElevenLabsToClaude } from "@/lib/studio/elevenlabs-connector";
+import { checkConnectors } from "@/lib/studio/mcp-connectors";
 import { childEnv } from "@/lib/studio/runner";
 import { exchangeLongLived, searchAds, setMetaUserToken, adLibraryTokens } from "@/lib/research/meta";
 import { startResearch } from "@/lib/research/run";
@@ -376,6 +378,7 @@ export async function saveSettingsAction(form: FormData) {
       },
       voice: current.voice,
       higgsfield: current.higgsfield,
+      elevenlabsMcp: current.elevenlabsMcp,
       research: current.research,
       analytics: {
         fetchEveryHours: Number(form.get("anFetchEveryHours") ?? current.analytics.fetchEveryHours),
@@ -587,14 +590,36 @@ export async function saveVoiceSettingsAction(form: FormData) {
     const db = getDb();
     const apiKey = str(form, "apiKey").trim();
     const model = str(form, "voiceModel").trim();
+    if (model) updateSettings(db, { voice: { model } });
+    // Weg 1: Verbindung von Claude (nur, wenn das Formular die Schalter enthält)
+    if (form.has("voiceModel")) {
+      updateSettings(db, { elevenlabsMcp: { enabled: form.get("elEnabled") === "on", inAutomations: form.get("elAuto") === "on" } });
+    }
     if (apiKey) {
       const voices = await listVoices(apiKey); // prüft den Schlüssel
       await setElevenLabsKey(db, apiKey);
-      if (model) updateSettings(db, { voice: { model } });
-      return `ElevenLabs verbunden – ${voices.length} Stimmen verfügbar. Jetzt pro Projekt eine Stimme wählen (Projekt → Einstellungen).`;
+      return `ElevenLabs-Schlüssel gespeichert – ${voices.length} Stimmen verfügbar. Jetzt pro Projekt eine Stimme wählen (Projekt → Einstellungen).`;
     }
-    if (model) updateSettings(db, { voice: { model } });
+    const s = getSettings(db).elevenlabsMcp;
+    if (s.enabled && s.detected.status !== "ok") return "Gespeichert – jetzt noch „Verbindung prüfen“, damit das Studio die ElevenLabs-Verbindung findet";
     return "Stimmen-Einstellungen gespeichert";
+  });
+}
+
+export async function checkElevenLabsAction(form: FormData) {
+  await attempt(form, "/einstellungen#stimmen", async () => {
+    const d = (await checkConnectors(getDb(), { env: childEnv() })).elevenlabs;
+    if (d.status === "ok") return `ElevenLabs-Verbindung gefunden (${d.server}) – jetzt „Claude darf … nutzen“ einschalten und speichern`;
+    throw new Error(d.message);
+  });
+}
+
+export async function setupElevenLabsAction(form: FormData) {
+  await attempt(form, "/einstellungen#stimmen", async () => {
+    await addElevenLabsToClaude(childEnv());
+    const d = (await checkConnectors(getDb(), { env: childEnv() })).elevenlabs;
+    if (d.status === "ok") return "ElevenLabs ist eingerichtet und verbunden";
+    return "ElevenLabs ist bei Claude Code eingetragen – jetzt einmal anmelden (Anleitung unten)";
   });
 }
 
@@ -614,7 +639,9 @@ const voiceRef = (v: string) => {
 export async function saveProjectVoicesAction(form: FormData) {
   await attempt(form, "/projekte", () => {
     const project = formProject(form);
-    updateVoices(getDb(), project.id, { main: voiceRef(str(form, "mainVoice")), second: voiceRef(str(form, "secondVoice")) });
+    // Mit Schlüssel: Auswahl „id|Name“; ohne Schlüssel: nur der Name der Stimme
+    const pick = (field: string) => (form.has(`${field}Name`) ? ({ id: "", name: str(form, `${field}Name`) } as const) : voiceRef(str(form, field)));
+    updateVoices(getDb(), project.id, { main: pick("mainVoice"), second: pick("secondVoice") });
     return "Stimmen gespeichert – stehen jetzt auch in PROJEKT.md";
   });
 }

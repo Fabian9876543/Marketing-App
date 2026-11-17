@@ -2,6 +2,8 @@ import path from "node:path";
 import { connection } from "next/server";
 import {
   checkAdLibraryAction,
+  checkElevenLabsAction,
+  setupElevenLabsAction,
   removeMetaTokenAction,
   saveResearchSettingsAction,
   checkHiggsfieldAction,
@@ -12,6 +14,7 @@ import {
   setupHiggsfieldAction,
 } from "@/app/actions";
 import { HIGGSFIELD_ADD_ARGS } from "@/lib/studio/higgsfield";
+import { ELEVENLABS_ADD_ARGS } from "@/lib/studio/elevenlabs-connector";
 import { getMetaUserToken } from "@/lib/research/meta";
 import { metaConfig } from "@/lib/env";
 import { SubmitButton } from "@/components/client";
@@ -29,6 +32,7 @@ import { getElevenLabsKey, getUsage, type Usage } from "@/lib/voice/elevenlabs";
 const VOICE_MODELS = [
   { id: "eleven_multilingual_v2", label: "Multilingual v2 – natürlich, sehr gutes Deutsch (empfohlen)" },
   { id: "eleven_v3", label: "Eleven v3 – ausdrucksstärker, Emotionen" },
+  { id: "eleven_v4", label: "Eleven v4 – neuestes Modell, Regieanweisungen wie [flüsternd]" },
   { id: "eleven_flash_v2_5", label: "Flash v2.5 – schnell und günstiger" },
 ];
 
@@ -229,28 +233,85 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <section id="stimmen" className="card space-y-4 p-4 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="h2">Stimmen (ElevenLabs)</h2>
-            {voiceKey ? <Badge tone="ok">Verbunden</Badge> : <Badge>Nicht eingerichtet</Badge>}
+            {voiceKey ? (
+              <Badge tone="ok">Mit Schlüssel</Badge>
+            ) : s.elevenlabsMcp.enabled && s.elevenlabsMcp.detected.status === "ok" ? (
+              <Badge tone="ok">Über Claude verbunden</Badge>
+            ) : (
+              <Badge>Nicht eingerichtet</Badge>
+            )}
           </div>
           <p className="text-sm text-muted">
-            Damit spricht Claude Texte für deine Shorts ein, z. B. Erzähler oder gestellte Telefonate mit zwei Stimmen. Den API-Schlüssel legst du bei
-            elevenlabs.io unter „Developers → API Keys“ an. Er wird verschlüsselt gespeichert; Claude bekommt ihn nie zu sehen.
+            Damit spricht Claude Texte für deine Shorts ein, z. B. Erzähler oder gestellte Telefonate mit zwei Stimmen. Es gibt zwei Wege – einer reicht.
           </p>
-          {voiceKey && (
-            <p className="text-sm">
-              {usage ? (
-                <>
-                  Verbraucht: <span className="font-medium tabular-nums">{usage.characterCount.toLocaleString("de-DE")}</span> von{" "}
-                  <span className="tabular-nums">{usage.characterLimit.toLocaleString("de-DE")}</span> Zeichen
-                  {usage.resetAt && <span className="text-muted"> · neues Guthaben am {formatDate(usage.resetAt, s.timezone)}</span>}
-                </>
-              ) : (
-                <span className="text-warn">{usageError}</span>
-              )}
+
+          <div className="space-y-2 rounded-lg border border-line p-3">
+            <h3 className="text-sm font-semibold">Weg 1: Über die ElevenLabs-Verbindung von Claude – ohne Schlüssel</h3>
+            <p className="text-xs text-muted">
+              Hast du ElevenLabs in Claude verbunden (claude.ai → Einstellungen → Connectors), nutzt das Studio diese Verbindung. Abgerechnet wird über dein
+              ElevenLabs-Konto, die App speichert nichts.
             </p>
-          )}
-          <form action={saveVoiceSettingsAction} className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-muted [overflow-wrap:anywhere]">
+                {s.elevenlabsMcp.detected.checkedAt
+                  ? `${s.elevenlabsMcp.detected.message} · geprüft ${relative(s.elevenlabsMcp.detected.checkedAt)}`
+                  : "Noch nicht geprüft."}
+              </span>
+              <form action={checkElevenLabsAction}>
+                <input type="hidden" name="back" value="/einstellungen#stimmen" />
+                <SubmitButton className="btn py-1 text-xs" pendingText="Prüfe (bis 1 Min.) …">
+                  Verbindung prüfen
+                </SubmitButton>
+              </form>
+              {s.elevenlabsMcp.detected.status === "missing" && s.elevenlabsMcp.detected.checkedAt && (
+                <form action={setupElevenLabsAction}>
+                  <input type="hidden" name="back" value="/einstellungen#stimmen" />
+                  <SubmitButton className="btn py-1 text-xs" pendingText="Richte ein …">
+                    Bei Claude Code einrichten
+                  </SubmitButton>
+                </form>
+              )}
+            </div>
+            {s.elevenlabsMcp.detected.checkedAt && s.elevenlabsMcp.detected.status !== "ok" && (
+              <p className="text-xs text-muted">
+                Nicht gefunden oder nicht angemeldet? „Bei Claude Code einrichten“ klicken (oder im Terminal{" "}
+                <code className="[overflow-wrap:anywhere]">claude {ELEVENLABS_ADD_ARGS.join(" ")}</code>), dann im Terminal <code>claude</code> starten,{" "}
+                <code>/mcp</code> eintippen, „elevenlabs“ wählen und „Authenticate“. Danach erneut prüfen.
+              </p>
+            )}
+          </div>
+
+          <form action={saveVoiceSettingsAction} className="space-y-3">
             <input type="hidden" name="back" value="/einstellungen#stimmen" />
-            <div>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="elEnabled" defaultChecked={s.elevenlabsMcp.enabled} /> Claude darf im Studio die ElevenLabs-Verbindung nutzen (Weg 1)
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="elAuto" defaultChecked={s.elevenlabsMcp.inAutomations} /> Auch in Automationen
+              </label>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-line p-3">
+              <h3 className="text-sm font-semibold">Weg 2: Mit API-Schlüssel (optional)</h3>
+              <p className="text-xs text-muted">
+                Bringt etwas mehr Komfort: Stimmenauswahl als Liste im Projekt, Zeichenverbrauch hier in der App, Zeitstempel je Wort und Transkripte für die
+                Recherche. Den Schlüssel legst du bei elevenlabs.io unter „Developers → API Keys“ an. Er wird verschlüsselt gespeichert; Claude sieht ihn nie. Ist
+                ein Schlüssel hinterlegt, nutzt das Studio diesen Weg.
+              </p>
+              {voiceKey && (
+                <p className="text-sm">
+                  {usage ? (
+                    <>
+                      Verbraucht: <span className="font-medium tabular-nums">{usage.characterCount.toLocaleString("de-DE")}</span> von{" "}
+                      <span className="tabular-nums">{usage.characterLimit.toLocaleString("de-DE")}</span> Zeichen
+                      {usage.resetAt && <span className="text-muted"> · neues Guthaben am {formatDate(usage.resetAt, s.timezone)}</span>}
+                    </>
+                  ) : (
+                    <span className="text-warn">{usageError}</span>
+                  )}
+                </p>
+              )}
               <label className="label" htmlFor="apiKey">
                 API-Schlüssel
               </label>
@@ -259,33 +320,36 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 name="apiKey"
                 type="password"
                 autoComplete="off"
-                placeholder={voiceKey ? "hinterlegt – zum Ändern neu eingeben" : "sk_…"}
+                placeholder={voiceKey ? "hinterlegt – zum Ändern neu eingeben" : "sk_… (leer lassen für Weg 1)"}
                 className="input font-mono"
               />
             </div>
-            <div>
-              <label className="label" htmlFor="voiceModel">
-                Modell
-              </label>
-              <select id="voiceModel" name="voiceModel" defaultValue={s.voice.model} className="input">
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="label" htmlFor="voiceModel">
+                  Modell (für beide Wege)
+                </label>
+                <select id="voiceModel" name="voiceModel" defaultValue={s.voice.model} className="input">
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
-              <SubmitButton className="btn btn-primary" pendingText="Prüfe …">
-                {voiceKey ? "Speichern" : "Verbinden"}
+            <div className="flex flex-wrap items-center gap-2">
+              <SubmitButton className="btn btn-primary" pendingText="Speichere …">
+                Speichern
               </SubmitButton>
-              <span className="text-xs text-muted">Danach pro Projekt eine Stimme wählen: Projekt → Einstellungen → Stimmen.</span>
+              <span className="text-xs text-muted">Danach pro Projekt die Stimmen festlegen: Projekt → Einstellungen → Stimmen.</span>
             </div>
           </form>
           {voiceKey && (
             <form action={removeVoiceKeyAction}>
               <input type="hidden" name="back" value="/einstellungen#stimmen" />
-              <SubmitButton className="btn btn-danger py-1 text-xs" confirm="ElevenLabs-Schlüssel entfernen? Claude kann dann keine Stimmen mehr erzeugen.">
+              <SubmitButton className="btn btn-danger py-1 text-xs" confirm="ElevenLabs-Schlüssel entfernen? Dann nutzt das Studio Weg 1, falls eingeschaltet.">
                 Schlüssel entfernen
               </SubmitButton>
             </form>
