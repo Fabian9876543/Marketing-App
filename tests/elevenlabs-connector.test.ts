@@ -7,7 +7,7 @@ import { getProject, updateVoices } from "@/lib/projects";
 import { getSettings, updateSettings } from "@/lib/settings";
 import { elevenlabsFor, addElevenLabsToClaude } from "@/lib/studio/elevenlabs-connector";
 import { downloadTool } from "@/lib/studio/files";
-import { checkConnectors } from "@/lib/studio/mcp-connectors";
+import { checkConnectors, getCheckState, startConnectorCheck } from "@/lib/studio/mcp-connectors";
 import { buildArgs, connectorsFor } from "@/lib/studio/runner";
 import { speakTool, voicesTool } from "@/lib/studio/tools";
 import { agentInstructions } from "@/lib/studio/workspace";
@@ -85,6 +85,48 @@ describe("ElevenLabs über die Verbindung von Claude", () => {
     } finally {
       delete process.env.CLAUDE_BIN;
     }
+  });
+
+  it("prüft im Hintergrund: sofort zurück, danach Ergebnis samt aller bekannten Verbindungen; ElevenLabs wird eingeschaltet", async () => {
+    const db = testDb();
+    const env = { ...process.env, CLAUDE_BIN: FAKE, FAKE_MCP_LIST: LIST, FAKE_MCP_SLEEP: "300" };
+    process.env.CLAUDE_BIN = FAKE;
+    try {
+      const run = startConnectorCheck(db, { env, enable: "elevenlabs" });
+      expect(run.started).toBe(true);
+      expect(getCheckState(db).state).toBe("running");
+      expect(startConnectorCheck(db, { env }).started).toBe(false); // läuft schon
+      await run.done;
+      const st = getCheckState(db);
+      expect(st).toMatchObject({ state: "done", message: "" });
+      expect(st.names).toEqual(["claude.ai ElevenLabs", "claude.ai Higgsfield", "notion"]);
+      expect(getSettings(db).elevenlabsMcp).toMatchObject({ enabled: true, detected: { server: "claude.ai ElevenLabs", status: "ok" } });
+      expect(getSettings(db).higgsfield.enabled).toBe(false); // Higgsfield nur von Hand einschalten
+    } finally {
+      delete process.env.CLAUDE_BIN;
+    }
+  });
+
+  it("meldet, wenn Claude Code hängt oder fehlt – statt endlos zu warten", async () => {
+    const db = testDb();
+    process.env.CLAUDE_BIN = FAKE;
+    try {
+      const slow = startConnectorCheck(db, { env: { ...process.env, CLAUDE_BIN: FAKE, FAKE_MCP_SLEEP: "5000" }, timeoutMs: 300 });
+      await slow.done;
+      expect(getCheckState(db)).toMatchObject({ state: "error", message: expect.stringMatching(/nicht geantwortet/) });
+      expect(getSettings(db).elevenlabsMcp.enabled).toBe(false);
+    } finally {
+      delete process.env.CLAUDE_BIN;
+    }
+    process.env.CLAUDE_BIN = "/gibt/es/nicht/claude";
+    try {
+      await startConnectorCheck(db, {}).done;
+      expect(getCheckState(db)).toMatchObject({ state: "error", message: expect.stringMatching(/nicht gefunden/) });
+    } finally {
+      delete process.env.CLAUDE_BIN;
+    }
+    // Eine hängengebliebene Prüfung (Server neu gestartet) gilt nach 3 Minuten als abgebrochen
+    expect(getCheckState(db, Date.now() + 10 * 60_000).state).not.toBe("running");
   });
 
   it("gibt die Verbindung nur frei, wenn eingeschaltet, erkannt und kein Schlüssel hinterlegt ist", async () => {

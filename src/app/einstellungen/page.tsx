@@ -15,9 +15,10 @@ import {
 } from "@/app/actions";
 import { HIGGSFIELD_ADD_ARGS } from "@/lib/studio/higgsfield";
 import { ELEVENLABS_ADD_ARGS } from "@/lib/studio/elevenlabs-connector";
+import { getCheckState, type CheckState, type ConnectorCheck } from "@/lib/studio/mcp-connectors";
 import { getMetaUserToken } from "@/lib/research/meta";
 import { metaConfig } from "@/lib/env";
-import { SubmitButton } from "@/components/client";
+import { AutoRefresh, SubmitButton } from "@/components/client";
 import { Badge, Flash, PageHeader, flashFrom } from "@/components/ui";
 import { getDb } from "@/lib/db/client";
 import { PLATFORM_LABEL } from "@/lib/accounts";
@@ -52,6 +53,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   }
 
   const voiceKey = await getElevenLabsKey(db).catch(() => null);
+  const check = getCheckState(db);
   let usage: Usage | null = null;
   let usageError = "";
   if (voiceKey) {
@@ -69,6 +71,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     <>
       <PageHeader title="Einstellungen" subtitle="Gelten für alle Projekte. Posting-Zeiten, Ordner und Briefing stellst du je Projekt ein." />
       <Flash {...await flashFrom(searchParams)} />
+      {check.state === "running" && <AutoRefresh everyMs={3000} />}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <form action={saveSettingsAction} className="card space-y-4 p-4 lg:col-span-2">
@@ -235,8 +238,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <h2 className="h2">Stimmen (ElevenLabs)</h2>
             {voiceKey ? (
               <Badge tone="ok">Mit Schlüssel</Badge>
-            ) : s.elevenlabsMcp.enabled && s.elevenlabsMcp.detected.status === "ok" ? (
-              <Badge tone="ok">Über Claude verbunden</Badge>
+            ) : check.state === "running" ? (
+              <Badge tone="info">Prüfe …</Badge>
+            ) : s.elevenlabsMcp.detected.status === "ok" ? (
+              s.elevenlabsMcp.enabled ? (
+                <Badge tone="ok">Über Claude verbunden</Badge>
+              ) : (
+                <Badge tone="warn">Gefunden – noch nicht eingeschaltet</Badge>
+              )
+            ) : s.elevenlabsMcp.detected.status === "auth" ? (
+              <Badge tone="warn">Anmeldung nötig</Badge>
             ) : (
               <Badge>Nicht eingerichtet</Badge>
             )}
@@ -252,18 +263,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               ElevenLabs-Konto, die App speichert nichts.
             </p>
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-muted [overflow-wrap:anywhere]">
-                {s.elevenlabsMcp.detected.checkedAt
-                  ? `${s.elevenlabsMcp.detected.message} · geprüft ${relative(s.elevenlabsMcp.detected.checkedAt)}`
-                  : "Noch nicht geprüft."}
-              </span>
+              <CheckLine detected={s.elevenlabsMcp.detected} check={check} label="ElevenLabs" enabled={s.elevenlabsMcp.enabled} />
               <form action={checkElevenLabsAction}>
                 <input type="hidden" name="back" value="/einstellungen#stimmen" />
-                <SubmitButton className="btn py-1 text-xs" pendingText="Prüfe (bis 1 Min.) …">
+                <SubmitButton className="btn py-1 text-xs" pendingText="Starte …" disabled={check.state === "running"}>
                   Verbindung prüfen
                 </SubmitButton>
               </form>
-              {s.elevenlabsMcp.detected.status === "missing" && s.elevenlabsMcp.detected.checkedAt && (
+              {check.state !== "running" && s.elevenlabsMcp.detected.status === "missing" && s.elevenlabsMcp.detected.checkedAt && (
                 <form action={setupElevenLabsAction}>
                   <input type="hidden" name="back" value="/einstellungen#stimmen" />
                   <SubmitButton className="btn py-1 text-xs" pendingText="Richte ein …">
@@ -272,7 +279,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 </form>
               )}
             </div>
-            {s.elevenlabsMcp.detected.checkedAt && s.elevenlabsMcp.detected.status !== "ok" && (
+            {check.state !== "running" && s.elevenlabsMcp.detected.checkedAt && s.elevenlabsMcp.detected.status !== "ok" && (
               <p className="text-xs text-muted">
                 Nicht gefunden oder nicht angemeldet? „Bei Claude Code einrichten“ klicken (oder im Terminal{" "}
                 <code className="[overflow-wrap:anywhere]">claude {ELEVENLABS_ADD_ARGS.join(" ")}</code>), dann im Terminal <code>claude</code> starten,{" "}
@@ -281,7 +288,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             )}
           </div>
 
-          <form action={saveVoiceSettingsAction} className="space-y-3">
+          {/* key: Formular neu aufbauen, wenn die Prüfung die Verbindung einschaltet (sonst bliebe der Haken alt stehen) */}
+          <form key={`stimmen-${s.elevenlabsMcp.enabled}-${s.elevenlabsMcp.inAutomations}-${s.voice.model}`} action={saveVoiceSettingsAction} className="space-y-3">
             <input type="hidden" name="back" value="/einstellungen#stimmen" />
             <div className="flex flex-col gap-2">
               <label className="flex items-center gap-2 text-sm">
@@ -359,32 +367,30 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <section id="higgsfield" className="card space-y-4 p-4 lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="h2">KI-Bilder und -Videos (Higgsfield)</h2>
-            {
+            {check.state === "running" ? (
+              <Badge tone="info">Prüfe …</Badge>
+            ) : (
               {
                 ok: <Badge tone="ok">Verbunden</Badge>,
                 auth: <Badge tone="warn">Anmeldung nötig</Badge>,
                 error: <Badge tone="bad">Nicht erreichbar</Badge>,
                 missing: <Badge>Nicht eingerichtet</Badge>,
               }[s.higgsfield.detected.status]
-            }
+            )}
           </div>
           <p className="text-sm text-muted">
             Claude erzeugt im Studio mit Higgsfield KI-Clips und -Bilder, z. B. Stimmungsbilder oder animierte Screenshots. Die Anmeldung und Abrechnung laufen
             über dein Higgsfield-Abo direkt in Claude Code; die App speichert dafür keinen Schlüssel.
           </p>
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-muted [overflow-wrap:anywhere]">
-              {s.higgsfield.detected.checkedAt
-                ? `${s.higgsfield.detected.message} · geprüft ${relative(s.higgsfield.detected.checkedAt)}`
-                : "Noch nicht geprüft."}
-            </span>
+            <CheckLine detected={s.higgsfield.detected} check={check} label="Higgsfield" enabled={s.higgsfield.enabled} />
             <form action={checkHiggsfieldAction}>
               <input type="hidden" name="back" value="/einstellungen#higgsfield" />
-              <SubmitButton className="btn py-1 text-xs" pendingText="Prüfe (bis 1 Min.) …">
+              <SubmitButton className="btn py-1 text-xs" pendingText="Starte …" disabled={check.state === "running"}>
                 Verbindung prüfen
               </SubmitButton>
             </form>
-            {s.higgsfield.detected.status === "missing" && (
+            {check.state !== "running" && s.higgsfield.detected.status === "missing" && (
               <form action={setupHiggsfieldAction}>
                 <input type="hidden" name="back" value="/einstellungen#higgsfield" />
                 <SubmitButton className="btn btn-primary py-1 text-xs" pendingText="Richte ein …">
@@ -408,7 +414,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               <p className="text-xs text-muted">Hast du Higgsfield schon auf claude.ai als Connector verbunden, erkennt die Prüfung das oft auch ohne diese Schritte.</p>
             </div>
           )}
-          <form action={saveHiggsfieldSettingsAction} className="space-y-3">
+          <form key={`hf-${s.higgsfield.enabled}-${s.higgsfield.maxCredits}`} action={saveHiggsfieldSettingsAction} className="space-y-3">
             <input type="hidden" name="back" value="/einstellungen#higgsfield" />
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="hfEnabled" defaultChecked={s.higgsfield.enabled} /> Claude darf im Studio Higgsfield nutzen
@@ -535,5 +541,42 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </section>
       </div>
     </>
+  );
+}
+
+/** Ergebnis bzw. Fortschritt der Prüfung „claude mcp list“ für einen Dienst. */
+function CheckLine({ detected, check, label, enabled }: { detected: ConnectorCheck; check: CheckState; label: string; enabled: boolean }) {
+  if (check.state === "running") {
+    const secs = check.startedAt ? Math.max(0, Math.round((Date.now() - check.startedAt) / 1000)) : 0;
+    return <span className="text-info">Prüfe die Verbindungen von Claude Code … ({secs} s, dauert bis zu einer Minute)</span>;
+  }
+  if (!detected.checkedAt) return <span className="text-muted">Noch nicht geprüft.</span>;
+  const when = `geprüft ${relative(detected.checkedAt)}`;
+  if (detected.status === "ok") {
+    return (
+      <span className="text-ok [overflow-wrap:anywhere]">
+        ✓ Gefunden: {detected.server}
+        {enabled ? " – eingeschaltet" : " – unten einschalten"} <span className="text-muted">· {when}</span>
+      </span>
+    );
+  }
+  if (detected.status === "auth") {
+    return (
+      <span className="text-warn [overflow-wrap:anywhere]">
+        ! {detected.server}: Anmeldung nötig <span className="text-muted">· {when}</span>
+      </span>
+    );
+  }
+  return (
+    <span className="text-bad [overflow-wrap:anywhere]">
+      {check.state === "error" ? check.message : detected.message}
+      {check.state === "done" && check.names.length > 0 && (
+        <span className="text-muted">
+          {" "}
+          Claude Code kennt: {check.names.join(", ")} – {label} ist nicht dabei.
+        </span>
+      )}{" "}
+      <span className="text-muted">· {when}</span>
+    </span>
   );
 }

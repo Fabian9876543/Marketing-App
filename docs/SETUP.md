@@ -217,7 +217,8 @@ Es gibt zwei Wege, einer reicht:
 **Weg 1: Über die ElevenLabs-Verbindung von Claude – ohne API-Schlüssel**
 1. ElevenLabs in Claude verbinden: auf claude.ai unter **Einstellungen → Connectors → ElevenLabs** (Anmeldung per Browser).
    Alternativ nur für Claude Code: in der App „Bei Claude Code einrichten“ klicken (entspricht `claude mcp add --transport http --scope user elevenlabs https://api.elevenlabs.io/v1/mcp`), dann im Terminal `claude` starten, `/mcp` eintippen, „elevenlabs“ wählen und „Authenticate“.
-2. In der App **Einstellungen → Stimmen (ElevenLabs) → „Verbindung prüfen“**, dann **„Claude darf im Studio die ElevenLabs-Verbindung nutzen“** einschalten und speichern.
+2. In der App **Einstellungen → Stimmen (ElevenLabs) → „Verbindung prüfen“**. Die Prüfung läuft im Hintergrund und dauert bis zu einer Minute, weil Claude Code dabei alle seine Verbindungen testet; die Karte aktualisiert sich von selbst. Wird ElevenLabs gefunden, schaltet die App es gleich ein („Über Claude verbunden“).
+   Findet sie es nicht, zeigt die Karte, welche Verbindungen Claude Code kennt – dann ElevenLabs wie oben beschrieben für Claude Code einrichten.
 3. **Projekt → Einstellungen → Stimmen**: die Namen der Stimmen eintragen, wie sie in deinem ElevenLabs-Konto stehen (Hauptstimme und optional eine zweite fürs Gegenüber). Leer lassen geht auch – dann wählt Claude eine passende deutsche Stimme.
 Claude erzeugt die Sprechertexte dann über die Verbindung und holt die Audiodateien mit `datei_laden` nach `studio/public/stimme/`. Es nimmt jeweils nur eine Variante, damit nichts doppelt kostet. In deinem ElevenLabs-Konto erscheint dafür pro Short ein „Flow“.
 

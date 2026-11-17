@@ -64,7 +64,7 @@ ${env}
 
 export function agentDefinitions(repo: string, node: string, logs: string) {
   const env = {
-    PATH: ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin", path.dirname(node)].join(":"),
+    PATH: [path.join(os.homedir(), ".local", "bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin", path.dirname(node)].join(":"),
     NODE_ENV: "production",
   };
   return [

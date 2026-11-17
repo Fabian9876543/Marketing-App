@@ -12,6 +12,8 @@ if (args.includes("--help")) { console.log("Options:\n  --permission-prompts <ta
 if (args[0] === "mcp") {
   // „claude mcp list“ / „claude mcp add …“ für die Higgsfield-Erkennung
   if (process.env.FAKE_MCP_LOG) fs.appendFileSync(process.env.FAKE_MCP_LOG, args.join(" ") + "\n");
+  // Langsame Health-Checks nachstellen
+  if (process.env.FAKE_MCP_SLEEP) await new Promise((r) => setTimeout(r, Number(process.env.FAKE_MCP_SLEEP)));
   const listFile = process.env.FAKE_MCP_LIST_FILE;
   const list = listFile && fs.existsSync(listFile) ? fs.readFileSync(listFile, "utf8") : process.env.FAKE_MCP_LIST;
   if (args[1] === "list") console.log(list ?? "No MCP servers configured. Use `claude mcp add` to add a server.");

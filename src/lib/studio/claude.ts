@@ -1,10 +1,23 @@
 import { execFile } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-/** Pfad zum Claude-Code-Programm (überschreibbar, z. B. für Tests). */
-export const claudeBin = () => process.env.CLAUDE_BIN || "claude";
+/**
+ * Pfad zum Claude-Code-Programm (überschreibbar, z. B. für Tests).
+ * Liegt „claude“ nicht im PATH (z. B. im Hintergrunddienst), werden die üblichen Installationsorte probiert.
+ */
+export function claudeBin(): string {
+  if (process.env.CLAUDE_BIN) return process.env.CLAUDE_BIN;
+  const inPath = (process.env.PATH ?? "").split(path.delimiter).some((dir) => dir && fs.existsSync(path.join(dir, "claude")));
+  if (inPath) return "claude";
+  const home = os.homedir();
+  const known = [path.join(home, ".local", "bin", "claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", path.join(home, ".claude", "local", "claude")];
+  return known.find((p) => fs.existsSync(p)) ?? "claude";
+}
 
 export type ClaudeInfo = { available: boolean; version: string | null; flags: Set<string>; error?: string };
 

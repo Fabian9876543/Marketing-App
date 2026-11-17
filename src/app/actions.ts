@@ -50,9 +50,9 @@ import { startAnalysis } from "@/lib/analysis";
 import { refreshDueInsights } from "@/lib/analytics/store";
 import { addManualLearning, decideLearning, removeLearning } from "@/lib/learnings";
 import { listVoices, setElevenLabsKey } from "@/lib/voice/elevenlabs";
-import { addHiggsfieldToClaude, checkHiggsfield } from "@/lib/studio/higgsfield";
+import { addHiggsfieldToClaude } from "@/lib/studio/higgsfield";
 import { addElevenLabsToClaude } from "@/lib/studio/elevenlabs-connector";
-import { checkConnectors } from "@/lib/studio/mcp-connectors";
+import { startConnectorCheck } from "@/lib/studio/mcp-connectors";
 import { childEnv } from "@/lib/studio/runner";
 import { exchangeLongLived, searchAds, setMetaUserToken, adLibraryTokens } from "@/lib/research/meta";
 import { startResearch } from "@/lib/research/run";
@@ -606,20 +606,21 @@ export async function saveVoiceSettingsAction(form: FormData) {
   });
 }
 
+const CHECK_RUNNING = "Prüfung läuft – das dauert bis zu einer Minute. Die Anzeige aktualisiert sich von selbst.";
+
 export async function checkElevenLabsAction(form: FormData) {
-  await attempt(form, "/einstellungen#stimmen", async () => {
-    const d = (await checkConnectors(getDb(), { env: childEnv() })).elevenlabs;
-    if (d.status === "ok") return `ElevenLabs-Verbindung gefunden (${d.server}) – jetzt „Claude darf … nutzen“ einschalten und speichern`;
-    throw new Error(d.message);
+  await attempt(form, "/einstellungen#stimmen", () => {
+    // Im Hintergrund: „claude mcp list“ prüft alle Verbindungen und dauert oft länger, als der Browser wartet
+    startConnectorCheck(getDb(), { env: childEnv(), enable: "elevenlabs" });
+    return CHECK_RUNNING;
   });
 }
 
 export async function setupElevenLabsAction(form: FormData) {
   await attempt(form, "/einstellungen#stimmen", async () => {
-    await addElevenLabsToClaude(childEnv());
-    const d = (await checkConnectors(getDb(), { env: childEnv() })).elevenlabs;
-    if (d.status === "ok") return "ElevenLabs ist eingerichtet und verbunden";
-    return "ElevenLabs ist bei Claude Code eingetragen – jetzt einmal anmelden (Anleitung unten)";
+    const out = await addElevenLabsToClaude(childEnv());
+    startConnectorCheck(getDb(), { env: childEnv(), enable: "elevenlabs" });
+    return `${/schon eingetragen/.test(out) ? out : "ElevenLabs ist bei Claude Code eingetragen."} Jetzt einmal anmelden (Anleitung in der Karte) – die Prüfung läuft.`;
   });
 }
 
@@ -661,19 +662,17 @@ export async function saveHiggsfieldSettingsAction(form: FormData) {
 }
 
 export async function checkHiggsfieldAction(form: FormData) {
-  await attempt(form, "/einstellungen#higgsfield", async () => {
-    const d = await checkHiggsfield(getDb(), { env: childEnv() });
-    if (d.status === "ok") return `Higgsfield ist verbunden (${d.server})`;
-    throw new Error(d.message);
+  await attempt(form, "/einstellungen#higgsfield", () => {
+    startConnectorCheck(getDb(), { env: childEnv() });
+    return CHECK_RUNNING;
   });
 }
 
 export async function setupHiggsfieldAction(form: FormData) {
   await attempt(form, "/einstellungen#higgsfield", async () => {
-    await addHiggsfieldToClaude(childEnv());
-    const d = await checkHiggsfield(getDb(), { env: childEnv() });
-    if (d.status === "ok") return "Higgsfield ist eingerichtet und verbunden";
-    return "Higgsfield ist bei Claude Code eingetragen – jetzt einmal anmelden (Anleitung unten)";
+    const out = await addHiggsfieldToClaude(childEnv());
+    startConnectorCheck(getDb(), { env: childEnv() });
+    return `${/schon eingetragen/.test(out) ? out : "Higgsfield ist bei Claude Code eingetragen."} Jetzt einmal anmelden (Anleitung in der Karte) – die Prüfung läuft.`;
   });
 }
 
